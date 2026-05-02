@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=yes, minimum-scale=0.5, maximum-scale=4.0">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="手帳">
@@ -12,7 +12,7 @@
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{width:100%;height:100%;overflow:hidden;background:#fff;
   font-family:'Hiragino Sans','Hiragino Kaku Gothic ProN','Noto Sans JP',sans-serif;
-  -webkit-user-select:none;user-select:none;touch-action:none}
+  -webkit-user-select:none;user-select:none;touch-action:pan-x pan-y pinch-zoom}
 :root{
   --ink:#1a1a1a;--mid:#888;--faint:#e8e8e8;--line:#ccc;
   --red:#cc3333;--blue:#336699;--accent:#4a90d9;
@@ -112,7 +112,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#fff;
 .time-label{flex:1;display:flex;align-items:flex-start;justify-content:flex-end;
   font-size:6.5px;color:var(--mid);padding-right:3px;padding-top:2px;border-top:.5px solid transparent}
 .time-label.major{border-top:.5px solid var(--line);font-size:7px}
-.day-col{display:flex;flex-direction:column;border-left:.5px solid var(--faint);position:relative}
+.day-col{display:flex;flex-direction:column;border-left:.5px solid var(--faint);position:relative;touch-action:none}
 .time-slot{flex:1;border-top:.5px solid var(--faint);position:relative}
 .time-slot.major{border-top:.5px solid var(--line)}
 .time-slot.selecting{background:rgba(74,144,217,.12)}
@@ -167,7 +167,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#fff;
   display:flex;flex-direction:column;overflow:hidden}
 #day-time-area{flex:1;position:relative;overflow:hidden;min-height:0}
 #day-time-grid{display:grid;height:100%;grid-template-columns:32px 1fr}
-.day-single-col{display:flex;flex-direction:column;border-left:.5px solid var(--faint);position:relative}
+.day-single-col{display:flex;flex-direction:column;border-left:.5px solid var(--faint);position:relative;touch-action:none}
 #day-draw-canvas{position:absolute;top:0;left:32px;right:0;bottom:0;
   display:none;touch-action:none;cursor:crosshair;z-index:10}
 #day-draw-canvas.active{display:block}
@@ -461,7 +461,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#fff;
 //  定数
 // ══════════════════════════════════════
 const DAYS_JP  = ['月','火','水','木','金','土','日'];
-const START_H  = 6, END_H = 22, N_HOURS = END_H - START_H;
+const START_H  = 6, END_H = 23, N_HOURS = END_H - START_H;
 
 const HABITS = [
   {id:'wake',  label:'早起き'},
@@ -1472,9 +1472,22 @@ applyZoom();
 // ══════════════════════════════════════
 const GCAL_CLIENT_ID='1069599784825-s8neot0a9443oqo39vudu56k10p86l1f.apps.googleusercontent.com';
 const GCAL_SCOPE='https://www.googleapis.com/auth/calendar';
-const GCAL_COLOR_MAP={'1':'purple','2':'green','3':'purple','4':'pink','5':'yellow','6':'orange','7':'blue','8':'gray','9':'blue','10':'green','11':'red'};
+// Googleカレンダー colorId → 実際の色
+const GCAL_COLORS_HEX={
+  '1':{bg:'#e8eaf6',border:'#7986cb',text:'#3949ab'}, // Lavender
+  '2':{bg:'#e8f5e9',border:'#33b679',text:'#2e7d32'}, // Sage
+  '3':{bg:'#f3e5f5',border:'#8e24aa',text:'#6a1b9a'}, // Grape
+  '4':{bg:'#fce4ec',border:'#e67c73',text:'#c62828'}, // Flamingo
+  '5':{bg:'#fffde7',border:'#f6bf26',text:'#f57f17'}, // Banana
+  '6':{bg:'#fff3e0',border:'#f4511e',text:'#e64a19'}, // Tangerine
+  '7':{bg:'#e3f2fd',border:'#039be5',text:'#0277bd'}, // Peacock
+  '8':{bg:'#f5f5f5',border:'#616161',text:'#424242'}, // Graphite
+  '9':{bg:'#e8eaf6',border:'#3f51b5',text:'#283593'}, // Blueberry
+  '10':{bg:'#e8f5e9',border:'#0b8043',text:'#1b5e20'},// Basil
+  '11':{bg:'#ffebee',border:'#d50000',text:'#b71c1c'}, // Tomato
+};
 const APP_TO_GCAL={'gray':'8','blue':'7','red':'11','green':'2','yellow':'5','purple':'3','orange':'6','pink':'4'};
-let gcalToken=null,gcalTokenClient=null,gcalEvCache=[];
+let gcalToken=null,gcalTokenClient=null,gcalEvCache=[],gcalCalColors={};
 
 function initGoogleAuth(){
   if(typeof google==='undefined'||gcalTokenClient) return;
@@ -1485,6 +1498,7 @@ function initGoogleAuth(){
       gcalToken=resp.access_token;
       const btn=document.getElementById('gcal-btn');
       btn.textContent='📅 同期中';btn.classList.add('connected');
+      await fetchCalendarColors();
       await fetchGCalEvents();
     }
   });
@@ -1494,6 +1508,27 @@ function gcalLogin(){
   if(typeof google==='undefined'){alert('少し待ってから再試行してください');return;}
   initGoogleAuth();
   gcalTokenClient.requestAccessToken({prompt:gcalToken?'':'consent'});
+}
+
+async function fetchCalendarColors(){
+  try{
+    const res=await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList',{headers:{Authorization:`Bearer ${gcalToken}`}});
+    const data=await res.json();
+    (data.items||[]).forEach(cal=>{gcalCalColors[cal.id]=cal.backgroundColor||'#039be5';});
+  }catch(e){console.error('GCal calList:',e);}
+}
+
+function hexToGcalColor(hex){
+  // hex → {bg, border, text} を生成
+  if(!hex) return GCAL_COLORS_HEX['7'];
+  return {bg:hex+'22',border:hex,text:hex};
+}
+
+function getGcalEventColor(ev){
+  if(ev.colorId && GCAL_COLORS_HEX[ev.colorId]) return GCAL_COLORS_HEX[ev.colorId];
+  const calColor=gcalCalColors[ev.organizer?.email]||gcalCalColors['primary'];
+  if(calColor) return hexToGcalColor(calColor);
+  return GCAL_COLORS_HEX['7'];
 }
 
 async function fetchGCalEvents(){
@@ -1523,8 +1558,7 @@ function renderGCalEvents(){
     if(sh>=END_H||eh<=START_H) return;
     const cs=Math.max(sh,START_H),ce=Math.min(eh,END_H);
     const sf=(cs-START_H)/N_HOURS,ef=(ce-START_H)/N_HOURS;
-    const cid=GCAL_COLOR_MAP[ev.colorId||'']||'blue';
-    const color=getColor(cid);
+    const color=getGcalEventColor(ev);
     const block=document.createElement('div');
     block.className='event-block gcal-ev-block';
     block.style.cssText=`top:${sf*100}%;height:${Math.max((ef-sf)*100,2)}%;background:${color.bg};border-left:3px solid ${color.border};color:${color.text};`;
