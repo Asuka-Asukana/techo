@@ -42,7 +42,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:#fff;
 .mode-btn.active{background:#fff;color:var(--ink);box-shadow:0 1px 4px rgba(0,0,0,.15)}
 
 /* ══ 月ビュー ══ */
-#month-view{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
+#month-view{flex:1;display:flex;flex-direction:row;overflow:hidden;min-height:0;gap:0}
+#month-cal{flex:0 0 62%;display:flex;flex-direction:column;overflow:hidden;border-right:1px solid var(--line)}
 #month-dow-row{display:grid;grid-template-columns:repeat(7,1fr);
   border-bottom:1px solid var(--ink);flex-shrink:0}
 .month-dow{text-align:center;font-size:10px;font-weight:700;padding:3px 0}
@@ -61,9 +62,29 @@ html,body{width:100%;height:100%;overflow:hidden;background:#fff;
 .mc-event-label{font-size:7px;line-height:1.2;white-space:nowrap;overflow:hidden;
   text-overflow:ellipsis;border-radius:2px;padding:0 2px;margin-top:1px}
 
+/* 月サイドバー */
+#month-sidebar{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
+.msb-section{display:flex;flex-direction:column;border-bottom:1px solid var(--line);padding:6px 8px;overflow:hidden}
+.msb-section:last-child{border-bottom:none;flex:1}
+.msb-title{font-size:9px;font-weight:700;color:var(--mid);letter-spacing:.05em;margin-bottom:6px;flex-shrink:0}
+.msb-lines{display:flex;flex-direction:column;gap:5px;flex:1}
+.msb-line{border-bottom:.5px solid var(--faint);min-height:16px}
+.msb-input{width:100%;border:none;border-bottom:.5px solid var(--faint);font-size:10px;
+  background:transparent;outline:none;padding:1px 2px;
+  -webkit-user-select:text;user-select:text;touch-action:auto;color:var(--ink)}
+#month-habit-wrap{flex:1;position:relative;overflow:hidden;min-height:60px}
+/* 未来日記 */
+#month-diary-wrap{flex:1;position:relative;overflow:hidden;min-height:60px}
+#month-diary-grid{position:absolute;inset:0;pointer-events:none}
+#month-diary-canvas{position:absolute;inset:0;touch-action:none;cursor:crosshair}
+.month-diary-text{width:100%;height:100%;border:none;outline:none;font-size:10px;
+  background:transparent;resize:none;font-family:inherit;line-height:1.8;
+  -webkit-user-select:text;user-select:text;touch-action:auto;color:var(--ink);
+  padding:2px;position:absolute;inset:0}
+
 /* ══ 週ビュー ══ */
 #week-view{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0;gap:0}
-#week-grid{flex:1;display:grid;overflow:hidden;min-height:0;grid-template-rows:auto 1fr auto}
+#week-grid{flex:1;display:grid;overflow:hidden;min-height:0;grid-template-rows:auto minmax(0,1fr) minmax(0,1fr)}
 #day-headers{display:grid;grid-template-columns:38px repeat(7,1fr);
   border-bottom:1px solid var(--ink);flex-shrink:0}
 .day-header{border-left:1px solid var(--faint);padding:3px 3px 4px;background:#fafafa}
@@ -86,7 +107,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#fff;
 
 #time-area{position:relative;overflow:hidden;min-height:0}
 #time-grid{display:grid;height:100%;grid-template-columns:38px repeat(7,1fr)}
-.time-label-col{display:flex;flex-direction:column;border-right:1px solid var(--line)}
+.time-label-col{display:flex;flex-direction:column;border-right:1px solid var(--line);position:relative}
 .time-label{flex:1;display:flex;align-items:flex-start;justify-content:flex-end;
   font-size:6.5px;color:var(--mid);padding-right:3px;padding-top:2px;border-top:.5px solid transparent}
 .time-label.major{border-top:.5px solid var(--line);font-size:7px}
@@ -104,56 +125,67 @@ html,body{width:100%;height:100%;overflow:hidden;background:#fff;
   display:none;touch-action:none;cursor:crosshair;z-index:10}
 #draw-canvas.active{display:block}
 #bottom-area{display:grid;grid-template-columns:38px repeat(7,1fr);
-  border-top:1.5px solid var(--ink);flex-shrink:0;height:22%}
+  border-top:1.5px solid var(--ink);overflow:hidden}
 .bottom-time-gap{border-right:1px solid var(--line)}
 .bottom-cell{border-left:.5px solid var(--faint);display:flex;flex-direction:column}
 .bottom-label{font-size:6.5px;color:var(--mid);padding:2px 3px 1px;
   border-bottom:.5px solid var(--line);background:#fafafa;font-weight:600}
 .bottom-section{flex:1;display:flex;flex-direction:column}
 .bottom-divider{height:.5px;background:var(--line)}
-.bottom-lines{flex:1;display:flex;flex-direction:column;justify-content:space-around;padding:1px 2px}
-.bottom-line{height:.5px;background:var(--faint)}
+.bottom-lines{flex:1;display:flex;flex-direction:column;justify-content:space-around;padding:2px 3px}
+.bottom-line{height:1px;background:var(--line)}
 .purchase-row{display:flex;font-size:6.5px;color:var(--mid);
   padding:0 2px;align-items:center;gap:2px;flex:1}
 .purchase-item{flex:1;border-bottom:.5px solid var(--faint)}
 .purchase-amt{width:30px;border-bottom:.5px solid var(--faint);text-align:right}
 
 /* ══ 日ビュー ══ */
-#day-view{flex:1;display:flex;overflow:hidden;min-height:0;gap:0}
-#day-left{display:flex;flex-direction:column;width:55%;border-right:1px solid var(--line);overflow:hidden}
+#day-view{flex:1;display:flex;flex-direction:row;overflow:hidden;min-height:0}
+
+/* 左カラム：フィールド */
+#day-fields{flex:0 0 30%;border-right:1px solid var(--line);
+  overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;touch-action:pan-y}
+.df-date-block{padding:8px 10px 6px;border-bottom:1px solid var(--line);flex-shrink:0}
+.df-date-num{font-size:32px;font-weight:700;line-height:1;color:var(--ink)}
+.df-date-info{font-size:10px;color:var(--mid);margin-top:1px}
+.df-date-dow{font-size:12px;font-weight:700;color:var(--mid)}
+.df-section{padding:5px 10px;border-bottom:.5px solid var(--faint)}
+.df-label{font-size:7.5px;font-weight:700;color:var(--mid);letter-spacing:.05em;margin-bottom:3px}
+.df-input{width:100%;border:none;border-bottom:.5px solid var(--faint);font-size:10px;
+  background:transparent;outline:none;padding:2px 0;margin-bottom:2px;
+  -webkit-user-select:text;user-select:text;touch-action:auto;color:var(--ink);display:block}
+.df-input:last-child{margin-bottom:0}
+/* ハビットトラッカー □のみ・縦1列・4段 */
+.df-habit-grid{display:flex;flex-direction:column;gap:6px;padding:2px 0}
+.df-habit-cb{width:16px;height:16px;border:1.5px solid var(--line);border-radius:3px;
+  cursor:pointer;flex-shrink:0;transition:background .1s}
+.df-habit-cb.done{background:var(--ink);border-color:var(--ink)}
+
+/* 中央カラム：タイムライン */
+#day-timeline{flex:0 0 18%;border-right:1px solid var(--line);
+  display:flex;flex-direction:column;overflow:hidden}
 #day-time-area{flex:1;position:relative;overflow:hidden;min-height:0}
-#day-time-grid{display:grid;height:100%;grid-template-columns:38px 1fr}
+#day-time-grid{display:grid;height:100%;grid-template-columns:32px 1fr}
 .day-single-col{display:flex;flex-direction:column;border-left:.5px solid var(--faint);position:relative}
-#day-draw-canvas{position:absolute;top:0;left:38px;right:0;bottom:0;
+#day-draw-canvas{position:absolute;top:0;left:32px;right:0;bottom:0;
   display:none;touch-action:none;cursor:crosshair;z-index:10}
 #day-draw-canvas.active{display:block}
 
-#day-right{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
-#habit-section{flex:0 0 auto;border-bottom:1px solid var(--line);padding:4px 6px}
-#habit-title{font-size:9px;font-weight:700;color:var(--mid);margin-bottom:4px;letter-spacing:.05em}
-#habit-list{display:grid;grid-template-columns:1fr 1fr;gap:3px}
-.habit-row{display:flex;align-items:center;gap:4px;cursor:pointer;padding:1px 0}
-.habit-check{width:14px;height:14px;border:1.5px solid var(--line);border-radius:3px;
-  flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;
-  transition:all .1s}
-.habit-check.done{background:var(--ink);border-color:var(--ink);color:#fff}
-.habit-label{font-size:9px;color:var(--ink);line-height:1.2}
-
-#journal-section{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0;
-  border-bottom:1px solid var(--line)}
-#journal-title{font-size:9px;font-weight:700;color:var(--mid);padding:4px 6px 2px;
-  flex-shrink:0;letter-spacing:.05em}
+/* 右カラム：ジャーナル */
+#day-journal{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.dj-label{font-size:8px;font-weight:700;color:var(--mid);letter-spacing:.06em;
+  padding:4px 8px;border-bottom:.5px solid var(--line);flex-shrink:0}
 #journal-canvas-wrap{flex:1;position:relative;overflow:hidden}
 #journal-canvas{position:absolute;inset:0;touch-action:none;cursor:crosshair}
 #journal-grid-canvas{position:absolute;inset:0;pointer-events:none}
 
-#tomorrow-section{flex:0 0 auto;padding:4px 6px}
-#tomorrow-title{font-size:9px;font-weight:700;color:var(--mid);margin-bottom:4px;letter-spacing:.05em}
-#tomorrow-lines{display:flex;flex-direction:column;gap:4px}
-.tomorrow-line{height:.5px;background:var(--faint);margin:0 2px}
 .tomorrow-input{width:100%;border:none;border-bottom:.5px solid var(--faint);font-size:10px;
   background:transparent;outline:none;padding:1px 2px;
   -webkit-user-select:text;user-select:text;touch-action:auto;color:var(--ink)}
+/* 後方互換 */
+.dr-canvas-wrap{position:relative;overflow:hidden;min-height:60px}
+.dr-grid-canvas{position:absolute;inset:0;pointer-events:none}
+.dr-draw-canvas{position:absolute;inset:0;touch-action:none;cursor:crosshair}
 
 /* 手書きツールバー */
 #draw-toolbar{position:fixed;top:calc(60px + var(--sat));right:10px;
@@ -238,17 +270,39 @@ html,body{width:100%;height:100%;overflow:hidden;background:#fff;
   </div>
 
   <!-- 月ビュー -->
-  <div id="month-view" class="view-pane" style="display:none;flex:1;flex-direction:column;overflow:hidden;min-height:0">
-    <div id="month-dow-row">
-      <div class="month-dow" style="color:var(--ink)">月</div>
-      <div class="month-dow" style="color:var(--ink)">火</div>
-      <div class="month-dow" style="color:var(--ink)">水</div>
-      <div class="month-dow" style="color:var(--ink)">木</div>
-      <div class="month-dow" style="color:var(--blue)">金</div>
-      <div class="month-dow" style="color:var(--blue)">土</div>
-      <div class="month-dow" style="color:var(--red)">日</div>
+  <div id="month-view" class="view-pane" style="display:none;flex:1;overflow:hidden;min-height:0">
+    <div id="month-cal">
+      <div id="month-dow-row">
+        <div class="month-dow" style="color:var(--ink)">月</div>
+        <div class="month-dow" style="color:var(--ink)">火</div>
+        <div class="month-dow" style="color:var(--ink)">水</div>
+        <div class="month-dow" style="color:var(--ink)">木</div>
+        <div class="month-dow" style="color:var(--ink)">金</div>
+        <div class="month-dow" style="color:var(--blue)">土</div>
+        <div class="month-dow" style="color:var(--red)">日</div>
+      </div>
+      <div id="month-grid"></div>
     </div>
-    <div id="month-grid"></div>
+    <div id="month-sidebar">
+      <div class="msb-section" style="flex:0 0 auto">
+        <div class="msb-title">今月の目標</div>
+        <div class="msb-lines" id="month-goals-lines"></div>
+      </div>
+      <div class="msb-section" style="flex:1;min-height:0">
+        <div class="msb-title">HABIT TRACKER</div>
+        <div id="month-habit-wrap" style="flex:1;position:relative;overflow:hidden;min-height:60px">
+          <canvas id="month-habit-grid-canvas" style="position:absolute;inset:0;pointer-events:none"></canvas>
+          <canvas id="month-habit-canvas" style="position:absolute;inset:0;touch-action:none;cursor:crosshair"></canvas>
+        </div>
+      </div>
+      <div class="msb-section" style="flex:1">
+        <div class="msb-title">未来日記</div>
+        <div id="month-diary-wrap">
+          <canvas id="month-diary-grid"></canvas>
+          <textarea class="month-diary-text" id="month-diary-text" placeholder="未来の自分へ…"></textarea>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- 週ビュー -->
@@ -264,28 +318,74 @@ html,body{width:100%;height:100%;overflow:hidden;background:#fff;
   </div>
 
   <!-- 日ビュー -->
-  <div id="day-view" class="view-pane" style="display:none;flex:1;display:none;overflow:hidden;min-height:0">
-    <div id="day-left">
+  <div id="day-view" class="view-pane" style="display:none;flex:1;overflow:hidden;min-height:0">
+    <!-- 左：タイムライン -->
+    <div id="day-timeline">
       <div id="day-time-area">
         <div id="day-time-grid"></div>
         <canvas id="day-draw-canvas"></canvas>
       </div>
     </div>
-    <div id="day-right">
-      <div id="habit-section">
-        <div id="habit-title">HABIT TRACKER</div>
-        <div id="habit-list"></div>
+    <!-- 中央：フィールド -->
+    <div id="day-fields">
+      <div class="df-date-block">
+        <div id="df-date-num" class="df-date-num">—</div>
+        <div id="df-date-info" class="df-date-info">—</div>
+        <div id="df-date-dow" class="df-date-dow">—</div>
       </div>
-      <div id="journal-section">
-        <div id="journal-title">JOURNAL</div>
-        <div id="journal-canvas-wrap">
-          <canvas id="journal-grid-canvas"></canvas>
-          <canvas id="journal-canvas"></canvas>
-        </div>
+      <div class="df-section">
+        <div class="df-label">今日の目標</div>
+        <input class="df-input" data-dayfield="goal1" placeholder="—">
       </div>
-      <div id="tomorrow-section">
-        <div id="tomorrow-title">明日したいこと</div>
+      <div class="df-section">
+        <div class="df-label">今日のハイライト</div>
+        <input class="df-input" data-dayfield="highlight" placeholder="—">
+      </div>
+      <div class="df-section">
+        <div class="df-label">やらないこと</div>
+        <input class="df-input" data-dayfield="notdo" placeholder="—">
+      </div>
+      <div class="df-section">
+        <div class="df-label">休み方</div>
+        <input class="df-input" data-dayfield="rest" placeholder="—">
+      </div>
+      <div class="df-section">
+        <div class="df-label">3つの感謝</div>
+        <input class="df-input" data-dayfield="thanks1" placeholder="1.">
+        <input class="df-input" data-dayfield="thanks2" placeholder="2.">
+        <input class="df-input" data-dayfield="thanks3" placeholder="3.">
+      </div>
+      <div class="df-section">
+        <div class="df-label">良かったこと3つ</div>
+        <input class="df-input" data-dayfield="good1" placeholder="1.">
+        <input class="df-input" data-dayfield="good2" placeholder="2.">
+        <input class="df-input" data-dayfield="good3" placeholder="3.">
+      </div>
+      <div class="df-section">
+        <div class="df-label">振り返り</div>
+        <input class="df-input" data-dayfield="review" placeholder="—">
+        <input class="df-input" data-dayfield="review2" placeholder="—">
+      </div>
+      <div class="df-section">
+        <div class="df-label">じぶんの褒め日記</div>
+        <input class="df-input" data-dayfield="praise" placeholder="—">
+        <input class="df-input" data-dayfield="praise2" placeholder="—">
+      </div>
+      <div class="df-section">
+        <div class="df-label">ハビットトラッカー</div>
+        <div class="df-habit-grid" id="habit-list"></div>
+      </div>
+      <div class="df-section">
+        <div class="df-label">明日したいこと</div>
         <div id="tomorrow-lines"></div>
+      </div>
+    </div>
+    <!-- 右：ジャーナリング -->
+    <div id="day-journal">
+      <div class="dj-label">ジャーナリング</div>
+      <div id="journal-canvas-wrap">
+        <canvas id="journal-grid-canvas"></canvas>
+        <canvas id="journal-canvas"></canvas>
       </div>
     </div>
   </div>
@@ -478,6 +578,105 @@ function renderMonthView(){
   document.getElementById('nav-title').textContent=`${y}年${m+1}月`;
   document.getElementById('nav-sub').textContent='';
   buildMonthCalendar(y,m);
+  buildMonthGoals(y,m);
+  buildMonthHabitGrid(y,m);
+  buildMonthDiary(y,m);
+}
+
+function monthSidebarKey(y,m){return`${y}-${String(m+1).padStart(2,'0')}`;}
+function loadMonthData(k){try{return JSON.parse(localStorage.getItem('month-'+k)||'{}')}catch{return{}}}
+function saveMonthData(k,d){localStorage.setItem('month-'+k,JSON.stringify(d));}
+
+function buildMonthGoals(y,m){
+  const mk=monthSidebarKey(y,m);
+  const data=loadMonthData(mk);
+  const goals=data.goals||['','',''];
+  const wrap=document.getElementById('month-goals-lines');
+  wrap.innerHTML='';
+  for(let i=0;i<3;i++){
+    const inp=document.createElement('input');
+    inp.type='text';inp.className='msb-input';
+    inp.placeholder=`目標 ${i+1}`;inp.value=goals[i]||'';
+    inp.addEventListener('input',()=>{
+      const d=loadMonthData(mk);
+      if(!d.goals) d.goals=['','',''];
+      d.goals[i]=inp.value;saveMonthData(mk,d);
+    });
+    wrap.appendChild(inp);
+  }
+}
+
+function buildMonthHabitGrid(y,m){
+  setTimeout(()=>{
+    const mk=monthSidebarKey(y,m);
+    const data=loadMonthData(mk);
+    const wrap=document.getElementById('month-habit-wrap');
+    if(!wrap) return;
+    const rect=wrap.getBoundingClientRect();
+    const dpr=window.devicePixelRatio||1;
+    const gc=document.getElementById('month-habit-grid-canvas');
+    const dc=document.getElementById('month-habit-canvas');
+    [gc,dc].forEach(c=>{
+      c.width=rect.width*dpr;c.height=rect.height*dpr;
+      c.style.width=rect.width+'px';c.style.height=rect.height+'px';
+    });
+    // 方眼グリッド
+    const gctx=gc.getContext('2d');
+    gctx.strokeStyle='#eeeeee';gctx.lineWidth=0.5;
+    const step=4*dpr;
+    for(let x=0;x<gc.width;x+=step){gctx.beginPath();gctx.moveTo(x,0);gctx.lineTo(x,gc.height);gctx.stroke();}
+    for(let yy=0;yy<gc.height;yy+=step){gctx.beginPath();gctx.moveTo(0,yy);gctx.lineTo(gc.width,yy);gctx.stroke();}
+    // 保存済み描画を復元
+    const saved=localStorage.getItem('month-habit-draw-'+mk);
+    if(saved){const img=new Image();img.onload=()=>{const ctx=dc.getContext('2d');ctx.scale(dpr,dpr);ctx.drawImage(img,0,0,rect.width,rect.height);};img.src=saved;}
+    // 描画イベント
+    const ctx=dc.getContext('2d');
+    ctx.lineCap='round';ctx.lineJoin='round';
+    let drawing=false;
+    dc.onpointerdown=e=>{
+      e.preventDefault();drawing=true;
+      const r=dc.getBoundingClientRect();
+      ctx.beginPath();ctx.moveTo(e.clientX-r.left,e.clientY-r.top);
+      dc.setPointerCapture(e.pointerId);
+    };
+    dc.onpointermove=e=>{
+      if(!drawing) return;
+      e.preventDefault();
+      const r=dc.getBoundingClientRect();
+      ctx.globalCompositeOperation=isEraser?'destination-out':'source-over';
+      ctx.strokeStyle=penColor;ctx.lineWidth=isEraser?penSize*6:penSize*(e.pressure||1);
+      ctx.lineTo(e.clientX-r.left,e.clientY-r.top);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(e.clientX-r.left,e.clientY-r.top);
+    };
+    dc.onpointerup=e=>{
+      if(!drawing) return;drawing=false;ctx.beginPath();
+      try{localStorage.setItem('month-habit-draw-'+mk,dc.toDataURL('image/png'));}catch(e){console.warn(e);}
+    };
+  },50);
+}
+
+function buildMonthDiary(y,m){
+  const mk=monthSidebarKey(y,m);
+  const data=loadMonthData(mk);
+  const ta=document.getElementById('month-diary-text');
+  ta.value=data.diary||'';
+  ta.oninput=()=>{
+    const d=loadMonthData(mk);d.diary=ta.value;saveMonthData(mk,d);
+  };
+  // 方眼グリッド
+  setTimeout(()=>{
+    const wrap=document.getElementById('month-diary-wrap');
+    const gc=document.getElementById('month-diary-grid');
+    const rect=wrap.getBoundingClientRect();
+    const dpr=window.devicePixelRatio||1;
+    gc.width=rect.width*dpr;gc.height=rect.height*dpr;
+    gc.style.width=rect.width+'px';gc.style.height=rect.height+'px';
+    const ctx=gc.getContext('2d');
+    ctx.strokeStyle='#eeeeee';ctx.lineWidth=0.5;
+    const step=4*dpr;
+    for(let x=0;x<gc.width;x+=step){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,gc.height);ctx.stroke();}
+    for(let yy=0;yy<gc.height;yy+=step){ctx.beginPath();ctx.moveTo(0,yy);ctx.lineTo(gc.width,yy);ctx.stroke();}
+  },50);
 }
 
 function getEventsForDate(d){
@@ -508,10 +707,8 @@ function buildMonthCalendar(y,m){
       if(isSameDay(cellDate,today)) cell.classList.add('today');
       const dateSpan=document.createElement('div');
       dateSpan.className='mc-date';
-      dateSpan.style.color=dow===4?'var(--blue)':dow===5?'var(--red)':'var(--ink)';
+      dateSpan.style.color=dow===5?'var(--blue)':dow===6?'var(--red)':'var(--ink)';
       dateSpan.textContent=cellDate.getDate();
-      if(dow===4) dateSpan.style.color='var(--blue)';
-      if(dow===5) dateSpan.style.color='var(--red)';
       cell.appendChild(dateSpan);
       // イベント表示
       const evs=getEventsForDate(cellDate);
@@ -627,6 +824,11 @@ function buildTimeGrid(){
     lb.textContent=h%2===0?`${String(h).padStart(2,'0')}:00`:'';
     lc.appendChild(lb);
   }
+  // 22:00 終端ラベル
+  const lb22=document.createElement('div');
+  lb22.style.cssText='position:absolute;bottom:0;right:3px;font-size:7px;color:var(--mid);line-height:1';
+  lb22.textContent=`${String(END_H).padStart(2,'0')}:00`;
+  lc.appendChild(lb22);
   grid.appendChild(lc);
   for(let di=0;di<7;di++){
     const col=document.createElement('div');
@@ -704,9 +906,16 @@ function renderDayView(){
   document.getElementById('nav-title').textContent=
     `${currentDate.getFullYear()}/${currentDate.getMonth()+1}/${currentDate.getDate()} (${DAYS_JP[wd]})`;
   document.getElementById('nav-sub').textContent='';
+  // 日付ブロック更新
+  document.getElementById('df-date-num').textContent=currentDate.getDate();
+  document.getElementById('df-date-num').style.color=dayColor;
+  document.getElementById('df-date-info').textContent=`${currentDate.getFullYear()}.${String(currentDate.getMonth()+1).padStart(2,'0')}`;
+  const dowEl=document.getElementById('df-date-dow');
+  dowEl.textContent=DAYS_JP[wd]; dowEl.style.color=dayColor;
   buildDayTimeGrid();
   renderDayEvents();
   buildHabitTracker();
+  buildDayFields();
   buildTomorrowLines();
   restoreDrawing('day');
   setTimeout(()=>{resizeDayCanvas();resizeJournalCanvas();},50);
@@ -717,10 +926,12 @@ function buildDayTimeGrid(){
   grid.innerHTML='';
   const lc=document.createElement('div');
   lc.className='time-label-col';
+  lc.style.borderRight='1px solid var(--line)';
   for(let h=START_H;h<END_H;h++){
     const lb=document.createElement('div');
     lb.className='time-label'+(h%2===0?' major':'');
-    lb.textContent=h%2===0?`${String(h).padStart(2,'0')}:00`:'';
+    lb.style.fontSize='6px';lb.style.paddingRight='2px';
+    lb.textContent=h%2===0?`${String(h).padStart(2,'0')}:`:'';
     lc.appendChild(lb);
   }
   grid.appendChild(lc);
@@ -767,20 +978,34 @@ function buildHabitTracker(){
   const done=loadHabits(dk);
   const list=document.getElementById('habit-list');
   list.innerHTML='';
-  HABITS.forEach(h=>{
-    const row=document.createElement('div');
-    row.className='habit-row';
-    const checked=done.includes(h.id);
-    row.innerHTML=`<div class="habit-check${checked?' done':''}">${checked?'✓':''}</div><div class="habit-label">${h.label}</div>`;
-    row.onclick=()=>{
-      const dk2=dateKey(currentDate);
-      const cur=loadHabits(dk2);
-      const idx=cur.indexOf(h.id);
-      if(idx>=0) cur.splice(idx,1); else cur.push(h.id);
-      saveHabits(dk2,cur);
-      buildHabitTracker();
+  // □だけ4個・縦1列
+  for(let i=0;i<4;i++){
+    const cb=document.createElement('div');
+    cb.className='df-habit-cb'+(done.includes('h'+i)?' done':'');
+    cb.onclick=()=>{
+      const cur=loadHabits(dateKey(currentDate));
+      const idx=cur.indexOf('h'+i);
+      if(idx>=0) cur.splice(idx,1); else cur.push('h'+i);
+      saveHabits(dateKey(currentDate),cur);
+      cb.classList.toggle('done');
     };
-    list.appendChild(row);
+    list.appendChild(cb);
+  }
+}
+
+function buildDayFields(){
+  const dk=dateKey(currentDate);
+  const data=loadData(currentWeekKey);
+  const dayFields=(data.dayFields||{})[dk]||{};
+  document.querySelectorAll('.df-input[data-dayfield]').forEach(inp=>{
+    inp.value=dayFields[inp.dataset.dayfield]||'';
+    inp.oninput=()=>{
+      const d=loadData(currentWeekKey);
+      if(!d.dayFields) d.dayFields={};
+      if(!d.dayFields[dk]) d.dayFields[dk]={};
+      d.dayFields[dk][inp.dataset.dayfield]=inp.value;
+      saveData(currentWeekKey,d);
+    };
   });
 }
 
