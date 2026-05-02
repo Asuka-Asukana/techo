@@ -1,0 +1,1207 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="手帳">
+<title>手帳</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:#fff;
+  font-family:'Hiragino Sans','Hiragino Kaku Gothic ProN','Noto Sans JP',sans-serif;
+  -webkit-user-select:none;user-select:none;touch-action:none}
+:root{
+  --ink:#1a1a1a;--mid:#888;--faint:#e8e8e8;--line:#ccc;
+  --red:#cc3333;--blue:#336699;--accent:#4a90d9;
+  --sat:env(safe-area-inset-top,0px);--sab:env(safe-area-inset-bottom,0px);
+}
+
+#app{display:flex;flex-direction:column;height:100dvh;
+  padding:8px 8px calc(8px + var(--sab)) 8px;
+  padding-top:calc(8px + var(--sat));gap:4px}
+
+/* ── トップバー ── */
+#topbar{display:flex;align-items:center;justify-content:space-between;
+  padding-bottom:6px;border-bottom:1.5px solid var(--ink);flex-shrink:0;gap:6px}
+#nav-area{display:flex;align-items:center;gap:6px;min-width:0}
+#nav-title{font-size:15px;font-weight:700;color:var(--ink);white-space:nowrap}
+#nav-sub{font-size:10px;color:var(--mid)}
+.nav-btn{width:28px;height:28px;border:none;background:#f5f5f5;border-radius:6px;
+  font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  color:var(--ink);flex-shrink:0}
+.nav-btn:active{background:#e0e0e0}
+#view-toggle{display:flex;gap:2px;background:#f0f0f0;border-radius:9px;padding:3px;flex-shrink:0}
+.view-btn{padding:4px 10px;border:none;background:transparent;border-radius:7px;
+  font-size:12px;cursor:pointer;color:var(--mid);transition:all .15s;font-weight:600}
+.view-btn.active{background:#fff;color:var(--ink);box-shadow:0 1px 4px rgba(0,0,0,.15)}
+#mode-toggle{display:flex;gap:2px;background:#f0f0f0;border-radius:9px;padding:3px;flex-shrink:0}
+.mode-btn{padding:4px 8px;border:none;background:transparent;border-radius:7px;
+  font-size:11px;cursor:pointer;color:var(--mid);transition:all .15s;white-space:nowrap}
+.mode-btn.active{background:#fff;color:var(--ink);box-shadow:0 1px 4px rgba(0,0,0,.15)}
+
+/* ══ 月ビュー ══ */
+#month-view{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
+#month-dow-row{display:grid;grid-template-columns:repeat(7,1fr);
+  border-bottom:1px solid var(--ink);flex-shrink:0}
+.month-dow{text-align:center;font-size:10px;font-weight:700;padding:3px 0}
+#month-grid{flex:1;display:grid;grid-template-rows:repeat(6,1fr);overflow:hidden}
+.month-week-row{display:grid;grid-template-columns:repeat(7,1fr);
+  border-bottom:.5px solid var(--line);min-height:0}
+.month-cell{border-right:.5px solid var(--line);padding:2px 3px;
+  display:flex;flex-direction:column;cursor:pointer;min-height:0;overflow:hidden;
+  position:relative}
+.month-cell:last-child{border-right:none}
+.month-cell.other-month{background:#fafafa}
+.month-cell.today{background:#fff9e6}
+.mc-date{font-size:10px;font-weight:700;line-height:1.4;flex-shrink:0}
+.mc-dots{display:flex;flex-wrap:wrap;gap:2px;margin-top:1px}
+.mc-dot{width:6px;height:6px;border-radius:50%}
+.mc-event-label{font-size:7px;line-height:1.2;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;border-radius:2px;padding:0 2px;margin-top:1px}
+
+/* ══ 週ビュー ══ */
+#week-view{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0;gap:0}
+#week-grid{flex:1;display:grid;overflow:hidden;min-height:0;grid-template-rows:auto 1fr auto}
+#day-headers{display:grid;grid-template-columns:38px repeat(7,1fr);
+  border-bottom:1px solid var(--ink);flex-shrink:0}
+.day-header{border-left:1px solid var(--faint);padding:3px 3px 4px;background:#fafafa}
+.day-header:first-child{border-left:none}
+.dh-name{font-size:9px;font-weight:700;text-align:center;margin-bottom:1px}
+.dh-date{font-size:8px;color:var(--mid);text-align:center;margin-bottom:3px}
+.dh-row{display:flex;align-items:center;gap:2px;margin-bottom:1px}
+.dh-label{font-size:6.5px;color:var(--mid);white-space:nowrap}
+.dh-input{flex:1;border:none;border-bottom:.5px solid var(--line);font-size:7px;
+  background:transparent;outline:none;min-width:0;padding:0 1px;
+  -webkit-user-select:text;user-select:text;touch-action:auto}
+.time-sel-sm{flex:1;border:none;border-bottom:.5px solid var(--line);font-size:7px;
+  background:transparent;outline:none;min-width:0;padding:0 1px;
+  -webkit-appearance:none;appearance:none;cursor:pointer;touch-action:auto;color:var(--ink)}
+.weather-sel{border:none;font-size:10px;background:transparent;outline:none;
+  cursor:pointer;-webkit-appearance:none;width:22px;text-align:center;touch-action:auto}
+.temp-input{width:20px;border:none;border-bottom:.5px solid var(--line);font-size:7px;
+  background:transparent;outline:none;text-align:center;padding:0;
+  -webkit-user-select:text;user-select:text;touch-action:auto}
+
+#time-area{position:relative;overflow:hidden;min-height:0}
+#time-grid{display:grid;height:100%;grid-template-columns:38px repeat(7,1fr)}
+.time-label-col{display:flex;flex-direction:column;border-right:1px solid var(--line)}
+.time-label{flex:1;display:flex;align-items:flex-start;justify-content:flex-end;
+  font-size:6.5px;color:var(--mid);padding-right:3px;padding-top:2px;border-top:.5px solid transparent}
+.time-label.major{border-top:.5px solid var(--line);font-size:7px}
+.day-col{display:flex;flex-direction:column;border-left:.5px solid var(--faint);position:relative}
+.time-slot{flex:1;border-top:.5px solid var(--faint);position:relative}
+.time-slot.major{border-top:.5px solid var(--line)}
+.time-slot.selecting{background:rgba(74,144,217,.12)}
+.event-block{position:absolute;left:2px;right:2px;border-radius:5px;
+  border-left:3px solid transparent;padding:2px 4px;cursor:pointer;overflow:hidden;z-index:5;
+  display:flex;flex-direction:column;justify-content:flex-start;transition:opacity .1s}
+.event-block:active{opacity:.75}
+.event-time{font-size:6.5px;opacity:.75;white-space:nowrap;line-height:1.2}
+.event-text{font-size:8px;font-weight:500;line-height:1.3;word-break:break-all}
+#draw-canvas{position:absolute;top:0;left:38px;right:0;bottom:0;
+  display:none;touch-action:none;cursor:crosshair;z-index:10}
+#draw-canvas.active{display:block}
+#bottom-area{display:grid;grid-template-columns:38px repeat(7,1fr);
+  border-top:1.5px solid var(--ink);flex-shrink:0;height:22%}
+.bottom-time-gap{border-right:1px solid var(--line)}
+.bottom-cell{border-left:.5px solid var(--faint);display:flex;flex-direction:column}
+.bottom-label{font-size:6.5px;color:var(--mid);padding:2px 3px 1px;
+  border-bottom:.5px solid var(--line);background:#fafafa;font-weight:600}
+.bottom-section{flex:1;display:flex;flex-direction:column}
+.bottom-divider{height:.5px;background:var(--line)}
+.bottom-lines{flex:1;display:flex;flex-direction:column;justify-content:space-around;padding:1px 2px}
+.bottom-line{height:.5px;background:var(--faint)}
+.purchase-row{display:flex;font-size:6.5px;color:var(--mid);
+  padding:0 2px;align-items:center;gap:2px;flex:1}
+.purchase-item{flex:1;border-bottom:.5px solid var(--faint)}
+.purchase-amt{width:30px;border-bottom:.5px solid var(--faint);text-align:right}
+
+/* ══ 日ビュー ══ */
+#day-view{flex:1;display:flex;overflow:hidden;min-height:0;gap:0}
+#day-left{display:flex;flex-direction:column;width:55%;border-right:1px solid var(--line);overflow:hidden}
+#day-time-area{flex:1;position:relative;overflow:hidden;min-height:0}
+#day-time-grid{display:grid;height:100%;grid-template-columns:38px 1fr}
+.day-single-col{display:flex;flex-direction:column;border-left:.5px solid var(--faint);position:relative}
+#day-draw-canvas{position:absolute;top:0;left:38px;right:0;bottom:0;
+  display:none;touch-action:none;cursor:crosshair;z-index:10}
+#day-draw-canvas.active{display:block}
+
+#day-right{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
+#habit-section{flex:0 0 auto;border-bottom:1px solid var(--line);padding:4px 6px}
+#habit-title{font-size:9px;font-weight:700;color:var(--mid);margin-bottom:4px;letter-spacing:.05em}
+#habit-list{display:grid;grid-template-columns:1fr 1fr;gap:3px}
+.habit-row{display:flex;align-items:center;gap:4px;cursor:pointer;padding:1px 0}
+.habit-check{width:14px;height:14px;border:1.5px solid var(--line);border-radius:3px;
+  flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;
+  transition:all .1s}
+.habit-check.done{background:var(--ink);border-color:var(--ink);color:#fff}
+.habit-label{font-size:9px;color:var(--ink);line-height:1.2}
+
+#journal-section{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0;
+  border-bottom:1px solid var(--line)}
+#journal-title{font-size:9px;font-weight:700;color:var(--mid);padding:4px 6px 2px;
+  flex-shrink:0;letter-spacing:.05em}
+#journal-canvas-wrap{flex:1;position:relative;overflow:hidden}
+#journal-canvas{position:absolute;inset:0;touch-action:none;cursor:crosshair}
+#journal-grid-canvas{position:absolute;inset:0;pointer-events:none}
+
+#tomorrow-section{flex:0 0 auto;padding:4px 6px}
+#tomorrow-title{font-size:9px;font-weight:700;color:var(--mid);margin-bottom:4px;letter-spacing:.05em}
+#tomorrow-lines{display:flex;flex-direction:column;gap:4px}
+.tomorrow-line{height:.5px;background:var(--faint);margin:0 2px}
+.tomorrow-input{width:100%;border:none;border-bottom:.5px solid var(--faint);font-size:10px;
+  background:transparent;outline:none;padding:1px 2px;
+  -webkit-user-select:text;user-select:text;touch-action:auto;color:var(--ink)}
+
+/* 手書きツールバー */
+#draw-toolbar{position:fixed;top:calc(60px + var(--sat));right:10px;
+  display:none;flex-direction:column;gap:6px;background:#fff;border-radius:12px;
+  padding:8px;box-shadow:0 2px 12px rgba(0,0,0,.15);z-index:20}
+#draw-toolbar.active{display:flex}
+.draw-tool-btn{width:36px;height:36px;border:none;border-radius:8px;font-size:16px;
+  cursor:pointer;background:#f5f5f5;display:flex;align-items:center;justify-content:center}
+.draw-tool-btn.selected{background:#e8f0fe;border:1.5px solid var(--accent)}
+.color-dot{width:20px;height:20px;border-radius:50%;border:2px solid #fff;
+  box-shadow:0 0 0 1px var(--faint);cursor:pointer}
+.color-dot.selected{box-shadow:0 0 0 2px var(--accent)}
+#pen-size-slider{width:8px;height:80px;-webkit-appearance:slider-vertical;
+  writing-mode:vertical-lr;direction:rtl;accent-color:var(--ink)}
+
+/* ── テンプレートpicker ── */
+#template-picker{position:fixed;inset:0;z-index:100;display:none;align-items:flex-end}
+#template-picker.open{display:flex}
+#template-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.3)}
+#template-sheet{position:relative;width:100%;background:#fff;border-radius:16px 16px 0 0;
+  padding:16px 16px calc(16px + var(--sab));max-height:55vh;overflow-y:auto;touch-action:auto}
+#template-sheet h3{font-size:14px;margin-bottom:12px;color:var(--ink)}
+#template-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.tpl-btn{padding:10px 6px;border:1px solid var(--faint);border-radius:8px;
+  background:#fafafa;font-size:11px;cursor:pointer;text-align:center;color:var(--ink);line-height:1.3}
+.tpl-btn:active{background:#e8e8e8}
+#tpl-cancel{margin-top:12px;width:100%;padding:12px;border:none;background:#f5f5f5;
+  border-radius:10px;font-size:14px;cursor:pointer;color:var(--ink)}
+
+/* ── イベント編集モーダル ── */
+#event-modal{position:fixed;inset:0;z-index:200;display:none;align-items:center;justify-content:center}
+#event-modal.open{display:flex}
+#event-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.25)}
+#event-sheet{position:relative;background:#fff;border-radius:14px;
+  padding:20px;width:min(380px,92vw);box-shadow:0 8px 30px rgba(0,0,0,.2);touch-action:auto}
+#event-sheet h4{font-size:15px;font-weight:700;margin-bottom:14px;color:var(--ink)}
+.time-range-row{display:flex;align-items:center;gap:8px;margin-bottom:14px}
+.time-range-row label{font-size:12px;color:var(--mid)}
+.time-sel{flex:1;padding:7px 8px;border:1px solid var(--faint);border-radius:8px;
+  font-size:13px;background:#fafafa;outline:none;touch-action:auto;
+  -webkit-appearance:none;appearance:none;text-align:center;cursor:pointer}
+.time-sel:focus{border-color:var(--accent)}
+.time-range-sep{font-size:14px;color:var(--mid)}
+.color-row{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.color-chip{width:28px;height:28px;border-radius:50%;border:2px solid transparent;
+  cursor:pointer;transition:transform .1s;flex-shrink:0}
+.color-chip.selected{border-color:var(--ink);transform:scale(1.15)}
+#event-text{width:100%;min-height:70px;border:1px solid var(--faint);border-radius:8px;
+  padding:8px;font-size:14px;outline:none;resize:none;font-family:inherit;
+  -webkit-user-select:text;user-select:text;touch-action:auto;margin-bottom:14px}
+#event-text:focus{border-color:var(--accent)}
+.modal-actions{display:flex;gap:8px}
+#event-ok{flex:1;padding:11px;background:var(--ink);color:#fff;border:none;
+  border-radius:8px;font-size:14px;cursor:pointer;font-weight:600}
+#event-delete{padding:11px 14px;background:#fee2e2;color:#cc3333;border:none;
+  border-radius:8px;font-size:14px;cursor:pointer;display:none}
+#event-cancel{padding:11px 14px;background:#f5f5f5;border:none;
+  border-radius:8px;font-size:14px;cursor:pointer;color:var(--ink)}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="topbar">
+    <div id="nav-area">
+      <button class="nav-btn" id="btn-prev">‹</button>
+      <div>
+        <div id="nav-title">—</div>
+        <div id="nav-sub">—</div>
+      </div>
+      <button class="nav-btn" id="btn-next">›</button>
+    </div>
+    <div id="view-toggle">
+      <button class="view-btn" data-view="month">月</button>
+      <button class="view-btn active" data-view="week">週</button>
+      <button class="view-btn" data-view="day">日</button>
+    </div>
+    <div id="mode-toggle">
+      <button class="mode-btn active" data-mode="keyboard">⌨️</button>
+      <button class="mode-btn" data-mode="draw">✏️</button>
+      <button class="mode-btn" data-mode="template">📋</button>
+    </div>
+  </div>
+
+  <!-- 月ビュー -->
+  <div id="month-view" class="view-pane" style="display:none;flex:1;flex-direction:column;overflow:hidden;min-height:0">
+    <div id="month-dow-row">
+      <div class="month-dow" style="color:var(--ink)">月</div>
+      <div class="month-dow" style="color:var(--ink)">火</div>
+      <div class="month-dow" style="color:var(--ink)">水</div>
+      <div class="month-dow" style="color:var(--ink)">木</div>
+      <div class="month-dow" style="color:var(--blue)">金</div>
+      <div class="month-dow" style="color:var(--blue)">土</div>
+      <div class="month-dow" style="color:var(--red)">日</div>
+    </div>
+    <div id="month-grid"></div>
+  </div>
+
+  <!-- 週ビュー -->
+  <div id="week-view" class="view-pane" style="flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0">
+    <div id="week-grid">
+      <div id="day-headers"><div style="border-right:1px solid var(--line)"></div></div>
+      <div id="time-area">
+        <div id="time-grid"></div>
+        <canvas id="draw-canvas"></canvas>
+      </div>
+      <div id="bottom-area"><div class="bottom-time-gap"></div></div>
+    </div>
+  </div>
+
+  <!-- 日ビュー -->
+  <div id="day-view" class="view-pane" style="display:none;flex:1;display:none;overflow:hidden;min-height:0">
+    <div id="day-left">
+      <div id="day-time-area">
+        <div id="day-time-grid"></div>
+        <canvas id="day-draw-canvas"></canvas>
+      </div>
+    </div>
+    <div id="day-right">
+      <div id="habit-section">
+        <div id="habit-title">HABIT TRACKER</div>
+        <div id="habit-list"></div>
+      </div>
+      <div id="journal-section">
+        <div id="journal-title">JOURNAL</div>
+        <div id="journal-canvas-wrap">
+          <canvas id="journal-grid-canvas"></canvas>
+          <canvas id="journal-canvas"></canvas>
+        </div>
+      </div>
+      <div id="tomorrow-section">
+        <div id="tomorrow-title">明日したいこと</div>
+        <div id="tomorrow-lines"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- テンプレートpicker -->
+<div id="template-picker">
+  <div id="template-backdrop"></div>
+  <div id="template-sheet">
+    <h3>📋 テンプレートを選択</h3>
+    <div id="template-grid"></div>
+    <button id="tpl-cancel">キャンセル</button>
+  </div>
+</div>
+
+<!-- イベント編集モーダル -->
+<div id="event-modal">
+  <div id="event-backdrop"></div>
+  <div id="event-sheet">
+    <h4 id="event-modal-title">スケジュールを追加</h4>
+    <div class="time-range-row">
+      <label>開始</label>
+      <select class="time-sel" id="sel-start"></select>
+      <span class="time-range-sep">→</span>
+      <label>終了</label>
+      <select class="time-sel" id="sel-end"></select>
+    </div>
+    <div class="color-row" id="color-row"></div>
+    <textarea id="event-text" placeholder="予定を入力…"></textarea>
+    <div class="modal-actions">
+      <button id="event-cancel">キャンセル</button>
+      <button id="event-delete">🗑 削除</button>
+      <button id="event-ok">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 手書きツールバー -->
+<div id="draw-toolbar">
+  <button class="draw-tool-btn selected" id="tool-pen">✏️</button>
+  <button class="draw-tool-btn" id="tool-eraser">⬜</button>
+  <div style="height:1px;background:var(--faint)"></div>
+  <div class="color-dot selected" style="background:#1a1a1a" data-color="#1a1a1a"></div>
+  <div class="color-dot" style="background:#cc3333" data-color="#cc3333"></div>
+  <div class="color-dot" style="background:#336699" data-color="#336699"></div>
+  <div class="color-dot" style="background:#2d8a4e" data-color="#2d8a4e"></div>
+  <div style="height:1px;background:var(--faint)"></div>
+  <input type="range" id="pen-size-slider" min="1" max="8" value="2">
+  <button class="draw-tool-btn" id="clear-draw">🗑️</button>
+</div>
+
+<script>
+// ══════════════════════════════════════
+//  定数
+// ══════════════════════════════════════
+const DAYS_JP  = ['月','火','水','木','金','土','日'];
+const START_H  = 6, END_H = 22, N_HOURS = END_H - START_H;
+
+const HABITS = [
+  {id:'wake',  label:'早起き'},
+  {id:'water', label:'水を飲む'},
+  {id:'meditate', label:'瞑想'},
+  {id:'journal',  label:'ジャーナル'},
+  {id:'read',  label:'読書'},
+  {id:'exercise', label:'運動'},
+  {id:'gratitude',label:'感謝'},
+  {id:'tidy',  label:'整理整頓'},
+  {id:'study', label:'学習'},
+  {id:'vitamin',  label:'ビタミン'},
+];
+
+const WEATHER_OPTIONS = [
+  {v:'',e:'—'},{v:'sunny',e:'☀️'},{v:'cloudy',e:'⛅'},
+  {v:'rainy',e:'🌧'},{v:'snowy',e:'❄️'},{v:'stormy',e:'⛈'},
+];
+
+const TIME_OPTIONS_SM = (()=>{
+  const opts=[{v:'',l:'—'}];
+  for(let h=0;h<24;h++) for(let m=0;m<60;m+=30)
+    opts.push({v:`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`,
+               l:`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`});
+  return opts;
+})();
+
+const TEMPLATES = [
+  {icon:'💼',label:'仕事'},{icon:'📝',label:'会議'},
+  {icon:'🍱',label:'ランチ'},{icon:'☕',label:'休憩'},
+  {icon:'🏃',label:'運動'},{icon:'📚',label:'勉強'},
+  {icon:'🚗',label:'移動'},{icon:'🛒',label:'買い物'},
+  {icon:'🍽',label:'夕食'},{icon:'📞',label:'電話'},
+  {icon:'🏥',label:'病院'},{icon:'🎉',label:'イベント'},
+];
+
+const EVENT_COLORS = [
+  {id:'gray',   bg:'#f0f0f0', border:'#bbbbbb', text:'#333333'},
+  {id:'blue',   bg:'#dbeafe', border:'#60a5fa', text:'#1e40af'},
+  {id:'red',    bg:'#fee2e2', border:'#f87171', text:'#991b1b'},
+  {id:'green',  bg:'#dcfce7', border:'#4ade80', text:'#166534'},
+  {id:'yellow', bg:'#fef9c3', border:'#facc15', text:'#854d0e'},
+  {id:'purple', bg:'#f3e8ff', border:'#c084fc', text:'#6b21a8'},
+  {id:'orange', bg:'#ffedd5', border:'#fb923c', text:'#9a3412'},
+  {id:'pink',   bg:'#fce7f3', border:'#f472b6', text:'#9d174d'},
+];
+
+// ══════════════════════════════════════
+//  状態
+// ══════════════════════════════════════
+let currentView    = 'week';
+let currentMode    = 'keyboard';
+let weekStart      = getWeekStart(new Date());
+let currentWeekKey = '';
+let currentDate    = new Date();
+let editingEventId = null;
+let activeColContext = 'week'; // 'week' or 'day'
+let activeDayDi    = 0;
+
+// ドラッグ
+let dragDi=-1, dragStartH=-1, dragEndH=-1, isDraggingSlot=false;
+
+// 手書き
+let isDrawing=false, penColor='#1a1a1a', penSize=2, isEraser=false;
+let drawCtx=null, dayDrawCtx=null, journalCtx=null;
+
+// ══════════════════════════════════════
+//  ユーティリティ
+// ══════════════════════════════════════
+function getWeekStart(d){
+  const ws=new Date(d); const day=ws.getDay();
+  ws.setDate(ws.getDate()-(day===0?6:day-1)); ws.setHours(0,0,0,0); return ws;
+}
+function addDays(d,n){const r=new Date(d);r.setDate(r.getDate()+n);return r;}
+function weekKey(ws){return ws.toISOString().slice(0,10);}
+function dateKey(d){return d.toISOString().slice(0,10);}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+function loadData(k){try{return JSON.parse(localStorage.getItem('week-'+k)||'{}')}catch{return{}}}
+function saveData(k,d){localStorage.setItem('week-'+k,JSON.stringify(d));}
+function loadDrawing(k){return localStorage.getItem('draw-'+k)||null;}
+function saveDrawing(k,u){try{localStorage.setItem('draw-'+k,u)}catch(e){console.warn(e)}}
+function loadHabits(k){try{return JSON.parse(localStorage.getItem('habit-'+k)||'[]')}catch{return[]}}
+function saveHabits(k,a){localStorage.setItem('habit-'+k,JSON.stringify(a));}
+function loadJournal(k){return localStorage.getItem('journal-'+k)||null;}
+function saveJournal(k,u){try{localStorage.setItem('journal-'+k,u)}catch(e){console.warn(e)}}
+function loadTomorrow(k){try{return JSON.parse(localStorage.getItem('tomorrow-'+k)||'[]')}catch{return[]}}
+function saveTomorrow(k,a){localStorage.setItem('tomorrow-'+k,JSON.stringify(a));}
+function getColor(id){return EVENT_COLORS.find(c=>c.id===id)||EVENT_COLORS[0];}
+function fmtH(h){const hh=Math.floor(h);const mm=h%1===0.5?'30':'00';return`${String(hh).padStart(2,'0')}:${mm}`;}
+function isSameDay(a,b){return a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate();}
+
+// ══════════════════════════════════════
+//  ビュー切替
+// ══════════════════════════════════════
+function switchView(view){
+  if(currentView==='week') saveCurrentDrawing('week');
+  if(currentView==='day')  saveCurrentDrawing('day');
+  currentView=view;
+  document.querySelectorAll('.view-btn').forEach(b=>b.classList.toggle('active',b.dataset.view===view));
+  document.getElementById('month-view').style.display = view==='month'?'flex':'none';
+  document.getElementById('week-view').style.display  = view==='week' ?'flex':'none';
+  document.getElementById('day-view').style.display   = view==='day'  ?'flex':'none';
+  document.getElementById('mode-toggle').style.visibility = view==='month'?'hidden':'visible';
+  if(view==='month') renderMonthView();
+  if(view==='week')  renderWeek();
+  if(view==='day')   renderDayView();
+}
+
+document.getElementById('view-toggle').addEventListener('click',e=>{
+  const btn=e.target.closest('.view-btn');
+  if(btn) switchView(btn.dataset.view);
+});
+
+// ══════════════════════════════════════
+//  ナビゲーション
+// ══════════════════════════════════════
+document.getElementById('btn-prev').onclick=()=>{
+  if(currentView==='month'){currentDate=new Date(currentDate.getFullYear(),currentDate.getMonth()-1,1);renderMonthView();}
+  else if(currentView==='week'){saveCurrentDrawing('week');weekStart=addDays(weekStart,-7);renderWeek();}
+  else if(currentView==='day'){saveCurrentDrawing('day');currentDate=addDays(currentDate,-1);renderDayView();}
+};
+document.getElementById('btn-next').onclick=()=>{
+  if(currentView==='month'){currentDate=new Date(currentDate.getFullYear(),currentDate.getMonth()+1,1);renderMonthView();}
+  else if(currentView==='week'){saveCurrentDrawing('week');weekStart=addDays(weekStart,7);renderWeek();}
+  else if(currentView==='day'){saveCurrentDrawing('day');currentDate=addDays(currentDate,1);renderDayView();}
+};
+
+// ══════════════════════════════════════
+//  月ビュー
+// ══════════════════════════════════════
+function renderMonthView(){
+  const y=currentDate.getFullYear(), m=currentDate.getMonth();
+  document.getElementById('nav-title').textContent=`${y}年${m+1}月`;
+  document.getElementById('nav-sub').textContent='';
+  buildMonthCalendar(y,m);
+}
+
+function getEventsForDate(d){
+  const ws=getWeekStart(d);
+  const wk=weekKey(ws);
+  const data=loadData(wk);
+  const di=(d.getDay()+6)%7;
+  return (data.events||[]).filter(e=>e.di===di);
+}
+
+function buildMonthCalendar(y,m){
+  const grid=document.getElementById('month-grid');
+  grid.innerHTML='';
+  const firstDay=new Date(y,m,1);
+  const startDow=(firstDay.getDay()+6)%7; // 月=0
+  const daysInMonth=new Date(y,m+1,0).getDate();
+  const today=new Date();
+  let dayCount=1-startDow;
+  for(let row=0;row<6;row++){
+    const rowEl=document.createElement('div');
+    rowEl.className='month-week-row';
+    for(let col=0;col<7;col++,dayCount++){
+      const cell=document.createElement('div');
+      cell.className='month-cell';
+      const cellDate=new Date(y,m,dayCount);
+      const dow=col; // 0=月
+      if(dayCount<1||dayCount>daysInMonth) cell.classList.add('other-month');
+      if(isSameDay(cellDate,today)) cell.classList.add('today');
+      const dateSpan=document.createElement('div');
+      dateSpan.className='mc-date';
+      dateSpan.style.color=dow===4?'var(--blue)':dow===5?'var(--red)':'var(--ink)';
+      dateSpan.textContent=cellDate.getDate();
+      if(dow===4) dateSpan.style.color='var(--blue)';
+      if(dow===5) dateSpan.style.color='var(--red)';
+      cell.appendChild(dateSpan);
+      // イベント表示
+      const evs=getEventsForDate(cellDate);
+      if(evs.length>0){
+        const dotsWrap=document.createElement('div');
+        dotsWrap.className='mc-dots';
+        evs.slice(0,6).forEach(ev=>{
+          const dot=document.createElement('div');
+          dot.className='mc-dot';
+          dot.style.background=getColor(ev.colorId).border;
+          dotsWrap.appendChild(dot);
+        });
+        cell.appendChild(dotsWrap);
+        // 最初のイベントラベル
+        const lbl=document.createElement('div');
+        lbl.className='mc-event-label';
+        lbl.style.background=getColor(evs[0].colorId).bg;
+        lbl.style.color=getColor(evs[0].colorId).text;
+        lbl.textContent=evs[0].text||fmtH(evs[0].startH);
+        cell.appendChild(lbl);
+      }
+      const cd=new Date(cellDate);
+      cell.onclick=()=>{currentDate=cd;switchView('day');};
+      rowEl.appendChild(cell);
+    }
+    grid.appendChild(rowEl);
+  }
+}
+
+// ══════════════════════════════════════
+//  週ビュー
+// ══════════════════════════════════════
+function renderWeek(){
+  currentWeekKey=weekKey(weekStart);
+  const we=addDays(weekStart,6);
+  const fmt=d=>`${d.getMonth()+1}/${d.getDate()}`;
+  document.getElementById('nav-title').textContent=`${fmt(weekStart)} – ${fmt(we)}`;
+  const jan1=new Date(weekStart.getFullYear(),0,1);
+  const wn=Math.ceil((((weekStart-jan1)/86400000)+jan1.getDay()+1)/7);
+  document.getElementById('nav-sub').textContent=`Week ${wn}`;
+  buildDayHeaders();
+  buildTimeGrid();
+  buildBottomArea();
+  restoreHeaderData();
+  renderAllEvents();
+  restoreDrawing('week');
+}
+
+function buildDayHeaders(){
+  const c=document.getElementById('day-headers');
+  while(c.children.length>1) c.removeChild(c.lastChild);
+  for(let di=0;di<7;di++){
+    const d=addDays(weekStart,di),wd=(d.getDay()+6)%7;
+    const col=wd===5?'var(--blue)':wd===6?'var(--red)':'var(--ink)';
+    const el=document.createElement('div');
+    el.className='day-header';el.dataset.di=di;
+    el.innerHTML=`
+      <div class="dh-name" style="color:${col}">${DAYS_JP[wd]}</div>
+      <div class="dh-date" style="color:${col}">${d.getMonth()+1}/${d.getDate()}</div>
+      <div class="dh-row">
+        <span class="dh-label">起床</span>
+        <select class="time-sel-sm" data-field="wake" data-di="${di}">
+          ${TIME_OPTIONS_SM.map(o=>`<option value="${o.v}">${o.l}</option>`).join('')}
+        </select>
+        <span class="dh-label">就寝</span>
+        <select class="time-sel-sm" data-field="sleep" data-di="${di}">
+          ${TIME_OPTIONS_SM.map(o=>`<option value="${o.v}">${o.l}</option>`).join('')}
+        </select>
+      </div>
+      <div class="dh-row">
+        <select class="weather-sel" data-field="weather" data-di="${di}">
+          ${WEATHER_OPTIONS.map(o=>`<option value="${o.v}">${o.e}</option>`).join('')}
+        </select>
+        <span class="dh-label">気温</span>
+        <input class="temp-input" data-field="tempMin" data-di="${di}" placeholder="—" type="number">
+        <span class="dh-label" style="margin:0 1px">/</span>
+        <input class="temp-input" data-field="tempMax" data-di="${di}" placeholder="—" type="number">
+        <span class="dh-label">°</span>
+      </div>`;
+    c.appendChild(el);
+  }
+  c.querySelectorAll('[data-field]').forEach(el=>{
+    el.addEventListener('change',onHeaderChange);
+    el.addEventListener('input',onHeaderChange);
+  });
+}
+function onHeaderChange(e){
+  const{field,di}=e.target.dataset;
+  const data=loadData(currentWeekKey);
+  if(!data.days) data.days={};
+  if(!data.days[di]) data.days[di]={};
+  data.days[di][field]=e.target.value;
+  saveData(currentWeekKey,data);
+}
+function restoreHeaderData(){
+  const{days={}}=loadData(currentWeekKey);
+  Object.entries(days).forEach(([di,dv])=>{
+    Object.entries(dv).forEach(([field,val])=>{
+      const el=document.querySelector(`[data-field="${field}"][data-di="${di}"]`);
+      if(el) el.value=val;
+    });
+  });
+}
+
+function buildTimeGrid(){
+  const grid=document.getElementById('time-grid');
+  grid.innerHTML='';
+  const lc=document.createElement('div');
+  lc.className='time-label-col';
+  for(let h=START_H;h<END_H;h++){
+    const lb=document.createElement('div');
+    lb.className='time-label'+(h%2===0?' major':'');
+    lb.textContent=h%2===0?`${String(h).padStart(2,'0')}:00`:'';
+    lc.appendChild(lb);
+  }
+  grid.appendChild(lc);
+  for(let di=0;di<7;di++){
+    const col=document.createElement('div');
+    col.className='day-col';col.dataset.di=di;
+    for(let h=START_H;h<END_H;h++){
+      const slot=document.createElement('div');
+      slot.className='time-slot'+(h%2===0?' major':'');
+      slot.dataset.di=di;slot.dataset.hour=h;
+      col.appendChild(slot);
+    }
+    col.addEventListener('pointerdown',e=>onColPointerDown(e,'week'));
+    col.addEventListener('pointermove',e=>onColPointerMove(e,'week'));
+    col.addEventListener('pointerup',  e=>onColPointerUp(e,'week'));
+    grid.appendChild(col);
+  }
+}
+
+function buildBottomArea(){
+  const area=document.getElementById('bottom-area');
+  while(area.children.length>1) area.removeChild(area.lastChild);
+  for(let di=0;di<7;di++){
+    const cell=document.createElement('div');
+    cell.className='bottom-cell';
+    if(di<3){
+      cell.innerHTML=`<div class="bottom-section">
+        <div class="bottom-label">やること</div>
+        <div class="bottom-lines">${[0,1,2].map(()=>'<div class="bottom-line"></div>').join('')}</div>
+        <div class="bottom-divider"></div>
+        <div class="bottom-label">やらないこと</div>
+        <div class="bottom-lines">${[0,1,2].map(()=>'<div class="bottom-line"></div>').join('')}</div>
+      </div>`;
+    } else {
+      cell.innerHTML=`<div class="bottom-section">
+        <div class="bottom-label">購入記録</div>
+        ${[0,1,2,3].map(()=>`<div class="purchase-row"><div class="purchase-item"></div><div class="purchase-amt"></div></div>`).join('')}
+      </div>`;
+    }
+    area.appendChild(cell);
+  }
+}
+
+function renderAllEvents(){
+  document.querySelectorAll('.event-block').forEach(b=>b.remove());
+  const{events=[]}=loadData(currentWeekKey);
+  events.forEach(ev=>{
+    const col=document.querySelector(`.day-col[data-di="${ev.di}"]`);
+    if(!col) return;
+    const startFrac=(ev.startH-START_H)/N_HOURS;
+    const endFrac  =(ev.endH  -START_H)/N_HOURS;
+    const color=getColor(ev.colorId||'blue');
+    const block=document.createElement('div');
+    block.className='event-block';block.dataset.evid=ev.id;
+    block.style.top=(startFrac*100)+'%';
+    block.style.height=((endFrac-startFrac)*100)+'%';
+    block.style.background=color.bg;
+    block.style.borderLeftColor=color.border;
+    block.style.color=color.text;
+    const durH=ev.endH-ev.startH;
+    block.innerHTML=`
+      <div class="event-time">${fmtH(ev.startH)} – ${fmtH(ev.endH)}</div>
+      ${durH>=0.5?`<div class="event-text">${ev.text||''}</div>`:''}`;
+    col.appendChild(block);
+  });
+}
+
+// ══════════════════════════════════════
+//  日ビュー
+// ══════════════════════════════════════
+function renderDayView(){
+  const ws=getWeekStart(currentDate);
+  currentWeekKey=weekKey(ws);
+  activeDayDi=(currentDate.getDay()+6)%7;
+  const wd=(currentDate.getDay()+6)%7;
+  const dayColor=wd===5?'var(--blue)':wd===6?'var(--red)':'var(--ink)';
+  document.getElementById('nav-title').textContent=
+    `${currentDate.getFullYear()}/${currentDate.getMonth()+1}/${currentDate.getDate()} (${DAYS_JP[wd]})`;
+  document.getElementById('nav-sub').textContent='';
+  buildDayTimeGrid();
+  renderDayEvents();
+  buildHabitTracker();
+  buildTomorrowLines();
+  restoreDrawing('day');
+  setTimeout(()=>{resizeDayCanvas();resizeJournalCanvas();},50);
+}
+
+function buildDayTimeGrid(){
+  const grid=document.getElementById('day-time-grid');
+  grid.innerHTML='';
+  const lc=document.createElement('div');
+  lc.className='time-label-col';
+  for(let h=START_H;h<END_H;h++){
+    const lb=document.createElement('div');
+    lb.className='time-label'+(h%2===0?' major':'');
+    lb.textContent=h%2===0?`${String(h).padStart(2,'0')}:00`:'';
+    lc.appendChild(lb);
+  }
+  grid.appendChild(lc);
+  const col=document.createElement('div');
+  col.className='day-single-col';col.dataset.di=activeDayDi;
+  for(let h=START_H;h<END_H;h++){
+    const slot=document.createElement('div');
+    slot.className='time-slot'+(h%2===0?' major':'');
+    slot.dataset.di=activeDayDi;slot.dataset.hour=h;
+    col.appendChild(slot);
+  }
+  col.addEventListener('pointerdown',e=>onColPointerDown(e,'day'));
+  col.addEventListener('pointermove',e=>onColPointerMove(e,'day'));
+  col.addEventListener('pointerup',  e=>onColPointerUp(e,'day'));
+  grid.appendChild(col);
+}
+
+function renderDayEvents(){
+  document.querySelectorAll('#day-time-grid .event-block').forEach(b=>b.remove());
+  const{events=[]}=loadData(currentWeekKey);
+  events.filter(ev=>ev.di===activeDayDi).forEach(ev=>{
+    const col=document.querySelector('.day-single-col');
+    if(!col) return;
+    const startFrac=(ev.startH-START_H)/N_HOURS;
+    const endFrac  =(ev.endH  -START_H)/N_HOURS;
+    const color=getColor(ev.colorId||'blue');
+    const block=document.createElement('div');
+    block.className='event-block';block.dataset.evid=ev.id;
+    block.style.top=(startFrac*100)+'%';
+    block.style.height=((endFrac-startFrac)*100)+'%';
+    block.style.background=color.bg;
+    block.style.borderLeftColor=color.border;
+    block.style.color=color.text;
+    const durH=ev.endH-ev.startH;
+    block.innerHTML=`
+      <div class="event-time">${fmtH(ev.startH)} – ${fmtH(ev.endH)}</div>
+      ${durH>=0.5?`<div class="event-text">${ev.text||''}</div>`:''}`;
+    col.appendChild(block);
+  });
+}
+
+function buildHabitTracker(){
+  const dk=dateKey(currentDate);
+  const done=loadHabits(dk);
+  const list=document.getElementById('habit-list');
+  list.innerHTML='';
+  HABITS.forEach(h=>{
+    const row=document.createElement('div');
+    row.className='habit-row';
+    const checked=done.includes(h.id);
+    row.innerHTML=`<div class="habit-check${checked?' done':''}">${checked?'✓':''}</div><div class="habit-label">${h.label}</div>`;
+    row.onclick=()=>{
+      const dk2=dateKey(currentDate);
+      const cur=loadHabits(dk2);
+      const idx=cur.indexOf(h.id);
+      if(idx>=0) cur.splice(idx,1); else cur.push(h.id);
+      saveHabits(dk2,cur);
+      buildHabitTracker();
+    };
+    list.appendChild(row);
+  });
+}
+
+function buildTomorrowLines(){
+  const dk=dateKey(currentDate);
+  const items=loadTomorrow(dk);
+  const wrap=document.getElementById('tomorrow-lines');
+  wrap.innerHTML='';
+  for(let i=0;i<4;i++){
+    const inp=document.createElement('input');
+    inp.type='text';inp.className='tomorrow-input';
+    inp.placeholder=`${i+1}.`;
+    inp.value=items[i]||'';
+    inp.addEventListener('input',()=>{
+      const cur=loadTomorrow(dateKey(currentDate));
+      cur[i]=inp.value;
+      saveTomorrow(dateKey(currentDate),cur);
+    });
+    wrap.appendChild(inp);
+  }
+}
+
+// ══════════════════════════════════════
+//  ドラッグ選択（週・日共用）
+// ══════════════════════════════════════
+function getHourFromY(colEl,y){
+  const rect=colEl.getBoundingClientRect();
+  const frac=Math.max(0,Math.min(1,(y-rect.top)/rect.height));
+  const raw=frac*N_HOURS+START_H;
+  return Math.floor(raw*2)/2;
+}
+
+function onColPointerDown(e,ctx){
+  if(currentMode==='draw') return;
+  const tgt=e.target.closest('.event-block');
+  if(tgt){editEvent(tgt.dataset.evid,ctx);return;}
+  if(currentMode==='keyboard'||currentMode==='template'){
+    isDraggingSlot=true;activeColContext=ctx;
+    dragDi=parseInt(e.currentTarget.dataset.di);
+    dragStartH=dragEndH=getHourFromY(e.currentTarget,e.clientY);
+    highlightSlots(dragDi,dragStartH,dragEndH,ctx);
+    e.currentTarget.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  }
+}
+function onColPointerMove(e,ctx){
+  if(!isDraggingSlot) return;
+  dragEndH=getHourFromY(e.currentTarget,e.clientY);
+  highlightSlots(dragDi,Math.min(dragStartH,dragEndH),Math.max(dragStartH,dragEndH),ctx);
+}
+function onColPointerUp(e,ctx){
+  if(!isDraggingSlot) return;
+  isDraggingSlot=false;
+  const sh=Math.min(dragStartH,dragEndH);
+  const eh=Math.max(dragStartH,dragEndH)+0.5;
+  clearHighlights();
+  if(currentMode==='keyboard') openEventModal(dragDi,sh,eh,false,ctx);
+  else if(currentMode==='template') openEventModal(dragDi,sh,eh,true,ctx);
+}
+function highlightSlots(di,sh,eh,ctx){
+  const scope=ctx==='day'?'#day-time-grid':'.time-slot';
+  document.querySelectorAll('.time-slot.selecting').forEach(s=>s.classList.remove('selecting'));
+  for(let h=sh;h<=eh;h+=0.5){
+    const s=document.querySelector(`.time-slot[data-di="${di}"][data-hour="${Math.floor(h)}"]`);
+    if(s) s.classList.add('selecting');
+  }
+}
+function clearHighlights(){
+  document.querySelectorAll('.time-slot.selecting').forEach(s=>s.classList.remove('selecting'));
+}
+
+// ══════════════════════════════════════
+//  イベントモーダル
+// ══════════════════════════════════════
+let modalDi=-1, modalColorId='blue', modalCtx='week';
+
+function buildTimeSelectors(){
+  const ss=document.getElementById('sel-start');
+  const es=document.getElementById('sel-end');
+  ss.innerHTML='';es.innerHTML='';
+  for(let h=START_H;h<=END_H;h++){
+    for(let m=0;m<60;m+=30){
+      if(h===END_H&&m>0) break;
+      const v=h+m/60;
+      const t=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+      ss.innerHTML+=`<option value="${v}">${t}</option>`;
+      es.innerHTML+=`<option value="${v}">${t}</option>`;
+    }
+  }
+}
+
+function buildColorRow(){
+  const row=document.getElementById('color-row');
+  row.innerHTML='';
+  EVENT_COLORS.forEach(col=>{
+    const chip=document.createElement('div');
+    chip.className='color-chip'+(col.id==='blue'?' selected':'');
+    chip.style.background=col.bg;chip.style.borderColor=col.border;
+    chip.dataset.colorId=col.id;
+    chip.onclick=()=>{
+      document.querySelectorAll('.color-chip').forEach(c=>c.classList.remove('selected'));
+      chip.classList.add('selected');modalColorId=col.id;
+    };
+    row.appendChild(chip);
+  });
+}
+
+function openEventModal(di,sh,eh,isTemplate=false,ctx='week'){
+  modalDi=di;editingEventId=null;modalCtx=ctx;
+  const d=ctx==='day'?currentDate:addDays(weekStart,di);
+  const wd=(d.getDay()+6)%7;
+  document.getElementById('event-modal-title').textContent=`${DAYS_JP[wd]} ${d.getMonth()+1}/${d.getDate()}`;
+  document.getElementById('sel-start').value=sh;
+  document.getElementById('sel-end').value=eh;
+  document.getElementById('event-text').value='';
+  document.getElementById('event-delete').style.display='none';
+  modalColorId='blue';
+  document.querySelectorAll('.color-chip').forEach(c=>c.classList.toggle('selected',c.dataset.colorId==='blue'));
+  document.getElementById('event-modal').classList.add('open');
+  if(isTemplate){openTemplatePicker();return;}
+  setTimeout(()=>document.getElementById('event-text').focus(),100);
+}
+
+function editEvent(evid,ctx='week'){
+  const data=loadData(currentWeekKey);
+  const ev=(data.events||[]).find(e=>e.id===evid);
+  if(!ev) return;
+  editingEventId=evid;modalDi=ev.di;modalCtx=ctx;
+  const d=ctx==='day'?currentDate:addDays(weekStart,ev.di);
+  const wd=(d.getDay()+6)%7;
+  document.getElementById('event-modal-title').textContent=`${DAYS_JP[wd]} 編集`;
+  document.getElementById('sel-start').value=ev.startH;
+  document.getElementById('sel-end').value=ev.endH;
+  document.getElementById('event-text').value=ev.text||'';
+  document.getElementById('event-delete').style.display='block';
+  modalColorId=ev.colorId||'blue';
+  document.querySelectorAll('.color-chip').forEach(c=>c.classList.toggle('selected',c.dataset.colorId===modalColorId));
+  document.getElementById('event-modal').classList.add('open');
+  setTimeout(()=>document.getElementById('event-text').focus(),100);
+}
+
+document.getElementById('event-ok').onclick=()=>{
+  const sh=parseFloat(document.getElementById('sel-start').value);
+  const eh=parseFloat(document.getElementById('sel-end').value);
+  if(eh<=sh){alert('終了時間は開始より後にしてください');return;}
+  const text=document.getElementById('event-text').value.trim();
+  const data=loadData(currentWeekKey);
+  if(!data.events) data.events=[];
+  if(editingEventId){
+    const ev=data.events.find(e=>e.id===editingEventId);
+    if(ev){ev.startH=sh;ev.endH=eh;ev.text=text;ev.colorId=modalColorId;}
+  } else {
+    data.events.push({id:uid(),di:modalDi,startH:sh,endH:eh,text,colorId:modalColorId});
+  }
+  saveData(currentWeekKey,data);
+  if(modalCtx==='week') renderAllEvents();
+  else renderDayEvents();
+  document.getElementById('event-modal').classList.remove('open');
+  editingEventId=null;
+};
+document.getElementById('event-delete').onclick=()=>{
+  if(!editingEventId) return;
+  const data=loadData(currentWeekKey);
+  data.events=(data.events||[]).filter(e=>e.id!==editingEventId);
+  saveData(currentWeekKey,data);
+  if(modalCtx==='week') renderAllEvents();
+  else renderDayEvents();
+  document.getElementById('event-modal').classList.remove('open');
+  editingEventId=null;
+};
+document.getElementById('event-cancel').onclick=()=>{
+  document.getElementById('event-modal').classList.remove('open');editingEventId=null;
+};
+document.getElementById('event-backdrop').onclick=()=>{
+  document.getElementById('event-modal').classList.remove('open');editingEventId=null;
+};
+
+// ══════════════════════════════════════
+//  テンプレートpicker
+// ══════════════════════════════════════
+function buildTemplatePicker(){
+  const g=document.getElementById('template-grid');
+  g.innerHTML='';
+  TEMPLATES.forEach(t=>{
+    const btn=document.createElement('button');
+    btn.className='tpl-btn';
+    btn.innerHTML=`${t.icon}<br><span style="font-size:9px">${t.label}</span>`;
+    btn.onclick=()=>{
+      document.getElementById('event-text').value=`${t.icon} ${t.label}`;
+      document.getElementById('template-picker').classList.remove('open');
+      document.getElementById('event-modal').classList.add('open');
+    };
+    g.appendChild(btn);
+  });
+}
+function openTemplatePicker(){document.getElementById('template-picker').classList.add('open');}
+document.getElementById('tpl-cancel').onclick=()=>document.getElementById('template-picker').classList.remove('open');
+document.getElementById('template-backdrop').onclick=()=>document.getElementById('template-picker').classList.remove('open');
+
+// ══════════════════════════════════════
+//  手書きキャンバス（週ビュー）
+// ══════════════════════════════════════
+const drawCanvas=document.getElementById('draw-canvas');
+const drawToolbar=document.getElementById('draw-toolbar');
+
+function initCanvas(){
+  drawCtx=drawCanvas.getContext('2d');
+  drawCtx.lineCap='round';drawCtx.lineJoin='round';
+  dayDrawCtx=document.getElementById('day-draw-canvas').getContext('2d');
+  dayDrawCtx.lineCap='round';dayDrawCtx.lineJoin='round';
+  journalCtx=document.getElementById('journal-canvas').getContext('2d');
+  journalCtx.lineCap='round';journalCtx.lineJoin='round';
+}
+
+function resizeCanvas(){
+  const area=document.getElementById('time-area');
+  const rect=area.getBoundingClientRect();
+  const firstCol=document.querySelector('.time-label-col');
+  const offsetX=firstCol?firstCol.getBoundingClientRect().width:42;
+  const dpr=window.devicePixelRatio||1;
+  drawCanvas.style.left=offsetX+'px';
+  drawCanvas.style.width=(rect.width-offsetX)+'px';
+  drawCanvas.style.height=rect.height+'px';
+  drawCanvas.width=(rect.width-offsetX)*dpr;
+  drawCanvas.height=rect.height*dpr;
+  if(drawCtx){drawCtx.scale(dpr,dpr);drawCtx.lineCap='round';drawCtx.lineJoin='round';}
+  restoreDrawing('week');
+}
+
+function resizeDayCanvas(){
+  const area=document.getElementById('day-time-area');
+  if(!area) return;
+  const rect=area.getBoundingClientRect();
+  const firstCol=document.querySelector('#day-time-grid .time-label-col');
+  const offsetX=firstCol?firstCol.getBoundingClientRect().width:42;
+  const dpr=window.devicePixelRatio||1;
+  const dc=document.getElementById('day-draw-canvas');
+  dc.style.left=offsetX+'px';
+  dc.style.width=(rect.width-offsetX)+'px';
+  dc.style.height=rect.height+'px';
+  dc.width=(rect.width-offsetX)*dpr;
+  dc.height=rect.height*dpr;
+  if(dayDrawCtx){dayDrawCtx.scale(dpr,dpr);dayDrawCtx.lineCap='round';dayDrawCtx.lineJoin='round';}
+  restoreDrawing('day');
+}
+
+function resizeJournalCanvas(){
+  const wrap=document.getElementById('journal-canvas-wrap');
+  if(!wrap) return;
+  const rect=wrap.getBoundingClientRect();
+  const dpr=window.devicePixelRatio||1;
+  const gc=document.getElementById('journal-grid-canvas');
+  const jc=document.getElementById('journal-canvas');
+  [gc,jc].forEach(c=>{c.width=rect.width*dpr;c.height=rect.height*dpr;c.style.width=rect.width+'px';c.style.height=rect.height+'px';});
+  drawJournalGrid(gc,rect.width,rect.height,dpr);
+  if(journalCtx){journalCtx.scale(dpr,dpr);journalCtx.lineCap='round';journalCtx.lineJoin='round';}
+  restoreDrawing('journal');
+}
+
+function drawJournalGrid(canvas,w,h,dpr){
+  const ctx=canvas.getContext('2d');
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.strokeStyle='#e8e8e8';ctx.lineWidth=0.5;
+  const step=4*dpr; // 4mm相当
+  for(let x=0;x<canvas.width;x+=step){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,canvas.height);ctx.stroke();}
+  for(let y=0;y<canvas.height;y+=step){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(canvas.width,y);ctx.stroke();}
+}
+
+function getCanvasForContext(ctx){
+  if(ctx==='week') return{canvas:drawCanvas,ctx:drawCtx};
+  if(ctx==='day')  return{canvas:document.getElementById('day-draw-canvas'),ctx:dayDrawCtx};
+  if(ctx==='journal') return{canvas:document.getElementById('journal-canvas'),ctx:journalCtx};
+  return{canvas:drawCanvas,ctx:drawCtx};
+}
+
+function getActiveDrawTarget(){
+  if(currentView==='week') return 'week';
+  if(currentView==='day')  return document.getElementById('journal-canvas').matches(':hover')?'journal':'day';
+  return 'week';
+}
+
+function setupDrawCanvas(canvas,ctxRef,drawKey){
+  canvas.addEventListener('pointerdown',e=>{
+    if(!canvas.classList.contains('active')) return;
+    e.preventDefault();isDrawing=true;
+    const{x,y}=getCP(e,canvas);
+    ctxRef.beginPath();ctxRef.moveTo(x,y);
+    canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener('pointermove',e=>{
+    if(!isDrawing||!canvas.classList.contains('active')) return;
+    e.preventDefault();
+    const{x,y}=getCP(e,canvas);
+    ctxRef.globalCompositeOperation=isEraser?'destination-out':'source-over';
+    ctxRef.strokeStyle=penColor;
+    ctxRef.lineWidth=isEraser?penSize*6:penSize*(e.pressure||1);
+    ctxRef.lineTo(x,y);ctxRef.stroke();
+    ctxRef.beginPath();ctxRef.moveTo(x,y);
+  });
+  canvas.addEventListener('pointerup',e=>{
+    if(!isDrawing) return;
+    isDrawing=false;ctxRef.beginPath();
+    saveCurrentDrawing(drawKey);
+  });
+}
+
+function getCP(e,canvas){
+  const r=canvas.getBoundingClientRect();
+  return{x:e.clientX-r.left,y:e.clientY-r.top};
+}
+
+function saveCurrentDrawing(target){
+  if(!currentWeekKey) return;
+  if(target==='week'&&drawCtx){saveDrawing(currentWeekKey,drawCanvas.toDataURL('image/png'));}
+  if(target==='day'&&dayDrawCtx){saveDrawing('day-'+dateKey(currentDate),document.getElementById('day-draw-canvas').toDataURL('image/png'));}
+  if(target==='journal'&&journalCtx){saveJournal(dateKey(currentDate),document.getElementById('journal-canvas').toDataURL('image/png'));}
+}
+
+function restoreDrawing(target){
+  if(target==='week'&&drawCtx){
+    const url=loadDrawing(currentWeekKey); if(!url) return;
+    const img=new Image();img.onload=()=>{const dpr=window.devicePixelRatio||1;drawCtx.clearRect(0,0,drawCanvas.width/dpr,drawCanvas.height/dpr);drawCtx.drawImage(img,0,0,drawCanvas.width/dpr,drawCanvas.height/dpr);};img.src=url;
+  }
+  if(target==='day'&&dayDrawCtx){
+    const dc=document.getElementById('day-draw-canvas');
+    const url=loadDrawing('day-'+dateKey(currentDate)); if(!url) return;
+    const img=new Image();img.onload=()=>{const dpr=window.devicePixelRatio||1;dayDrawCtx.clearRect(0,0,dc.width/dpr,dc.height/dpr);dayDrawCtx.drawImage(img,0,0,dc.width/dpr,dc.height/dpr);};img.src=url;
+  }
+  if(target==='journal'&&journalCtx){
+    const jc=document.getElementById('journal-canvas');
+    const url=loadJournal(dateKey(currentDate)); if(!url) return;
+    const img=new Image();img.onload=()=>{const dpr=window.devicePixelRatio||1;journalCtx.clearRect(0,0,jc.width/dpr,jc.height/dpr);journalCtx.drawImage(img,0,0,jc.width/dpr,jc.height/dpr);};img.src=url;
+  }
+}
+
+// ══════════════════════════════════════
+//  モード切替
+// ══════════════════════════════════════
+document.getElementById('mode-toggle').addEventListener('click',e=>{
+  const btn=e.target.closest('.mode-btn');
+  if(!btn) return;
+  currentMode=btn.dataset.mode;
+  document.querySelectorAll('.mode-btn').forEach(b=>b.classList.toggle('active',b.dataset.mode===currentMode));
+  const isDraw=currentMode==='draw';
+  drawCanvas.classList.toggle('active',isDraw&&currentView==='week');
+  document.getElementById('day-draw-canvas').classList.toggle('active',isDraw&&currentView==='day');
+  drawToolbar.classList.toggle('active',isDraw);
+});
+
+// 手書きツールバー
+document.getElementById('tool-pen').onclick=function(){isEraser=false;this.classList.add('selected');document.getElementById('tool-eraser').classList.remove('selected');};
+document.getElementById('tool-eraser').onclick=function(){isEraser=true;this.classList.add('selected');document.getElementById('tool-pen').classList.remove('selected');};
+document.querySelectorAll('.color-dot').forEach(dot=>{
+  dot.onclick=function(){
+    penColor=this.dataset.color;
+    document.querySelectorAll('.color-dot').forEach(d=>d.classList.remove('selected'));
+    this.classList.add('selected');isEraser=false;
+    document.getElementById('tool-pen').classList.add('selected');
+    document.getElementById('tool-eraser').classList.remove('selected');
+  };
+});
+document.getElementById('pen-size-slider').oninput=function(){penSize=parseInt(this.value);};
+document.getElementById('clear-draw').onclick=()=>{
+  const target=currentView==='week'?'week':'day';
+  const{canvas,ctx}=getCanvasForContext(target);
+  if(!ctx) return;
+  const dpr=window.devicePixelRatio||1;
+  ctx.clearRect(0,0,canvas.width/dpr,canvas.height/dpr);
+  saveCurrentDrawing(target);
+  // journalも消去対象
+  if(currentView==='day'&&journalCtx){
+    const jc=document.getElementById('journal-canvas');
+    journalCtx.clearRect(0,0,jc.width/(window.devicePixelRatio||1),jc.height/(window.devicePixelRatio||1));
+    saveCurrentDrawing('journal');
+  }
+};
+
+// ══════════════════════════════════════
+//  初期化
+// ══════════════════════════════════════
+buildTimeSelectors();
+buildColorRow();
+buildTemplatePicker();
+initCanvas();
+
+setupDrawCanvas(drawCanvas,drawCtx,'week');
+// day / journal canvas は初期化後にセットアップ
+setTimeout(()=>{
+  setupDrawCanvas(document.getElementById('day-draw-canvas'),dayDrawCtx,'day');
+  // journalキャンバスは常に描画モードで動作
+  const jc=document.getElementById('journal-canvas');
+  jc.addEventListener('pointerdown',e=>{
+    if(currentView!=='day') return;
+    e.preventDefault();isDrawing=true;
+    const{x,y}=getCP(e,jc);
+    journalCtx.beginPath();journalCtx.moveTo(x,y);
+    jc.setPointerCapture(e.pointerId);
+  });
+  jc.addEventListener('pointermove',e=>{
+    if(!isDrawing||currentView!=='day') return;
+    e.preventDefault();
+    const{x,y}=getCP(e,jc);
+    journalCtx.globalCompositeOperation=isEraser?'destination-out':'source-over';
+    journalCtx.strokeStyle=penColor;
+    journalCtx.lineWidth=isEraser?penSize*6:penSize*(e.pressure||1);
+    journalCtx.lineTo(x,y);journalCtx.stroke();
+    journalCtx.beginPath();journalCtx.moveTo(x,y);
+  });
+  jc.addEventListener('pointerup',e=>{
+    if(!isDrawing) return;
+    isDrawing=false;journalCtx.beginPath();saveCurrentDrawing('journal');
+  });
+},100);
+
+renderWeek();
+requestAnimationFrame(()=>resizeCanvas());
+window.addEventListener('resize',()=>{
+  saveCurrentDrawing(currentView==='week'?'week':'day');
+  resizeCanvas();
+  if(currentView==='day'){resizeDayCanvas();resizeJournalCanvas();}
+});
+</script>
+</body>
+</html>
