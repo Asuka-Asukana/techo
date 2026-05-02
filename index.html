@@ -7,6 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="手帳">
 <title>手帳</title>
+<script src="https://accounts.google.com/gsi/client" async></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{width:100%;height:100%;overflow:hidden;background:#fff;
@@ -201,6 +202,18 @@ html,body{width:100%;height:100%;overflow:hidden;background:#fff;
 #pen-size-slider{width:8px;height:80px;-webkit-appearance:slider-vertical;
   writing-mode:vertical-lr;direction:rtl;accent-color:var(--ink)}
 
+/* ── ズームコントロール ── */
+#zoom-bar{display:flex;align-items:center;gap:0;background:#f0f0f0;border-radius:9px;padding:3px;flex-shrink:0}
+.zoom-btn{width:24px;height:24px;border:none;background:transparent;border-radius:6px;font-size:15px;cursor:pointer;color:var(--ink);display:flex;align-items:center;justify-content:center;line-height:1}
+.zoom-btn:active{background:#e0e0e0}
+#zoom-label{font-size:10px;font-weight:700;color:var(--mid);min-width:34px;text-align:center;cursor:pointer}
+
+/* ── Google Calendar ── */
+#gcal-btn{padding:4px 8px;border:1px solid var(--faint);border-radius:7px;
+  font-size:10px;cursor:pointer;background:#fff;color:var(--mid);
+  white-space:nowrap;flex-shrink:0}
+#gcal-btn.connected{background:#e8f5e9;border-color:#4caf50;color:#2e7d32;font-weight:600}
+
 /* ── テンプレートpicker ── */
 #template-picker{position:fixed;inset:0;z-index:100;display:none;align-items:flex-end}
 #template-picker.open{display:flex}
@@ -267,6 +280,12 @@ html,body{width:100%;height:100%;overflow:hidden;background:#fff;
       <button class="mode-btn" data-mode="draw">✏️</button>
       <button class="mode-btn" data-mode="template">📋</button>
     </div>
+    <div id="zoom-bar">
+      <button class="zoom-btn" id="zoom-out">−</button>
+      <span id="zoom-label">100%</span>
+      <button class="zoom-btn" id="zoom-in">＋</button>
+    </div>
+    <button id="gcal-btn" onclick="gcalLogin()">📅 G連携</button>
   </div>
 
   <!-- 月ビュー -->
@@ -755,6 +774,7 @@ function renderWeek(){
   restoreHeaderData();
   renderAllEvents();
   restoreDrawing('week');
+  if(gcalToken) fetchGCalEvents();
 }
 
 function buildDayHeaders(){
@@ -1158,7 +1178,13 @@ document.getElementById('event-ok').onclick=()=>{
     const ev=data.events.find(e=>e.id===editingEventId);
     if(ev){ev.startH=sh;ev.endH=eh;ev.text=text;ev.colorId=modalColorId;}
   } else {
-    data.events.push({id:uid(),di:modalDi,startH:sh,endH:eh,text,colorId:modalColorId});
+    const newEv={id:uid(),di:modalDi,startH:sh,endH:eh,text,colorId:modalColorId};
+    data.events.push(newEv);
+    // Googleカレンダーにも保存
+    if(gcalToken){
+      const diDate=addDays(weekStart,modalDi);
+      createGCalEvent(newEv,diDate);
+    }
   }
   saveData(currentWeekKey,data);
   if(modalCtx==='week') renderAllEvents();
@@ -1419,6 +1445,106 @@ setTimeout(()=>{
     isDrawing=false;journalCtx.beginPath();saveCurrentDrawing('journal');
   });
 },100);
+
+// ══════════════════════════════════════
+//  ズームコントロール
+// ══════════════════════════════════════
+const ZOOM_STEPS=[50,75,100,125,150,175,200];
+let zoomLevel=parseInt(localStorage.getItem('zoom')||'100');
+function applyZoom(){
+  document.body.style.zoom=zoomLevel+'%';
+  document.getElementById('zoom-label').textContent=zoomLevel+'%';
+  localStorage.setItem('zoom',zoomLevel);
+}
+document.getElementById('zoom-in').onclick=()=>{
+  const i=ZOOM_STEPS.indexOf(zoomLevel);
+  if(i<ZOOM_STEPS.length-1){zoomLevel=ZOOM_STEPS[i+1];applyZoom();}
+};
+document.getElementById('zoom-out').onclick=()=>{
+  const i=ZOOM_STEPS.indexOf(zoomLevel);
+  if(i>0){zoomLevel=ZOOM_STEPS[i-1];applyZoom();}
+};
+document.getElementById('zoom-label').onclick=()=>{zoomLevel=100;applyZoom();};
+applyZoom();
+
+// ══════════════════════════════════════
+//  Google Calendar 連携
+// ══════════════════════════════════════
+const GCAL_CLIENT_ID='1069599784825-s8neot0a9443oqo39vudu56k10p86l1f.apps.googleusercontent.com';
+const GCAL_SCOPE='https://www.googleapis.com/auth/calendar';
+const GCAL_COLOR_MAP={'1':'purple','2':'green','3':'purple','4':'pink','5':'yellow','6':'orange','7':'blue','8':'gray','9':'blue','10':'green','11':'red'};
+const APP_TO_GCAL={'gray':'8','blue':'7','red':'11','green':'2','yellow':'5','purple':'3','orange':'6','pink':'4'};
+let gcalToken=null,gcalTokenClient=null,gcalEvCache=[];
+
+function initGoogleAuth(){
+  if(typeof google==='undefined'||gcalTokenClient) return;
+  gcalTokenClient=google.accounts.oauth2.initTokenClient({
+    client_id:GCAL_CLIENT_ID,scope:GCAL_SCOPE,
+    callback:async resp=>{
+      if(resp.error){console.error(resp);return;}
+      gcalToken=resp.access_token;
+      const btn=document.getElementById('gcal-btn');
+      btn.textContent='📅 同期中';btn.classList.add('connected');
+      await fetchGCalEvents();
+    }
+  });
+}
+
+function gcalLogin(){
+  if(typeof google==='undefined'){alert('少し待ってから再試行してください');return;}
+  initGoogleAuth();
+  gcalTokenClient.requestAccessToken({prompt:gcalToken?'':'consent'});
+}
+
+async function fetchGCalEvents(){
+  if(!gcalToken) return;
+  const start=new Date(weekStart);
+  const end=addDays(weekStart,7);
+  const p=new URLSearchParams({timeMin:start.toISOString(),timeMax:end.toISOString(),singleEvents:'true',orderBy:'startTime',maxResults:'250'});
+  try{
+    const res=await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?${p}`,{headers:{Authorization:`Bearer ${gcalToken}`}});
+    if(res.status===401){gcalToken=null;const btn=document.getElementById('gcal-btn');btn.textContent='📅 G連携';btn.classList.remove('connected');return;}
+    const data=await res.json();
+    gcalEvCache=data.items||[];
+    renderGCalEvents();
+  }catch(e){console.error('GCal fetch:',e);}
+}
+
+function renderGCalEvents(){
+  document.querySelectorAll('.gcal-ev-block').forEach(b=>b.remove());
+  gcalEvCache.forEach(ev=>{
+    if(!ev.start?.dateTime) return;
+    const sd=new Date(ev.start.dateTime),ed=new Date(ev.end.dateTime);
+    const di=Math.round((new Date(sd.getFullYear(),sd.getMonth(),sd.getDate())-new Date(weekStart.getFullYear(),weekStart.getMonth(),weekStart.getDate()))/86400000);
+    if(di<0||di>=7) return;
+    const col=document.querySelector(`.day-col[data-di="${di}"]`);
+    if(!col) return;
+    const sh=sd.getHours()+sd.getMinutes()/60,eh=ed.getHours()+ed.getMinutes()/60;
+    if(sh>=END_H||eh<=START_H) return;
+    const cs=Math.max(sh,START_H),ce=Math.min(eh,END_H);
+    const sf=(cs-START_H)/N_HOURS,ef=(ce-START_H)/N_HOURS;
+    const cid=GCAL_COLOR_MAP[ev.colorId||'']||'blue';
+    const color=getColor(cid);
+    const block=document.createElement('div');
+    block.className='event-block gcal-ev-block';
+    block.style.cssText=`top:${sf*100}%;height:${Math.max((ef-sf)*100,2)}%;background:${color.bg};border-left:3px solid ${color.border};color:${color.text};`;
+    block.innerHTML=`<div class="event-time">${fmtH(sh)}–${fmtH(eh)}</div><div class="event-text">${ev.summary||'(無題)'}</div>`;
+    col.appendChild(block);
+  });
+}
+
+async function createGCalEvent(evData,diDate){
+  if(!gcalToken) return;
+  const sd=new Date(diDate);sd.setHours(Math.floor(evData.startH),(evData.startH%1)*60,0,0);
+  const ed=new Date(diDate);ed.setHours(Math.floor(evData.endH),(evData.endH%1)*60,0,0);
+  try{
+    await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events',{
+      method:'POST',
+      headers:{Authorization:`Bearer ${gcalToken}`,'Content-Type':'application/json'},
+      body:JSON.stringify({summary:evData.text,colorId:APP_TO_GCAL[evData.colorId]||'7',start:{dateTime:sd.toISOString()},end:{dateTime:ed.toISOString()}})
+    });
+  }catch(e){console.error('GCal create:',e);}
+}
 
 renderWeek();
 requestAnimationFrame(()=>resizeCanvas());
