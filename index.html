@@ -135,6 +135,14 @@ html,body{width:100%;height:100%;overflow:hidden;background:#fff;
 .bottom-divider{height:.5px;background:var(--line)}
 .bottom-lines{flex:1;display:flex;flex-direction:column;justify-content:space-around;padding:2px 3px}
 .bottom-line{height:1px;background:var(--line)}
+.bottom-input{width:100%;border:none;border-bottom:1px solid var(--line);font-size:8px;
+  background:transparent;outline:none;padding:1px 2px;color:var(--ink);
+  -webkit-user-select:text;user-select:text;touch-action:auto;font-family:inherit}
+.purchase-input{border:none;border-bottom:1px solid var(--line);font-size:8px;
+  background:transparent;outline:none;padding:1px 2px;color:var(--ink);
+  -webkit-user-select:text;user-select:text;touch-action:auto;font-family:inherit}
+.purchase-input.item{flex:1;min-width:0}
+.purchase-input.amt{width:32px;text-align:right}
 .purchase-row{display:flex;font-size:6.5px;color:var(--mid);
   padding:0 2px;align-items:center;gap:2px;flex:1}
 .purchase-item{flex:1;border-bottom:.5px solid var(--faint)}
@@ -145,7 +153,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#fff;
 
 /* 左カラム：フィールド */
 #day-fields{flex:0 0 30%;border-right:1px solid var(--line);
-  overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;touch-action:pan-y}
+  overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;touch-action:pan-y pinch-zoom}
 .df-date-block{padding:8px 10px 6px;border-bottom:1px solid var(--line);flex-shrink:0}
 .df-date-num{font-size:32px;font-weight:700;line-height:1;color:var(--ink)}
 .df-date-info{font-size:10px;color:var(--mid);margin-top:1px}
@@ -168,17 +176,19 @@ html,body{width:100%;height:100%;overflow:hidden;background:#fff;
 #day-time-area{flex:1;position:relative;overflow:hidden;min-height:0}
 #day-time-grid{display:grid;height:100%;grid-template-columns:32px 1fr}
 .day-single-col{display:flex;flex-direction:column;border-left:.5px solid var(--faint);position:relative;touch-action:none}
-#day-draw-canvas{position:absolute;top:0;left:32px;right:0;bottom:0;
-  display:none;touch-action:none;cursor:crosshair;z-index:10}
-#day-draw-canvas.active{display:block}
+#day-draw-canvas{display:none!important;pointer-events:none}
 
 /* 右カラム：ジャーナル */
-#day-journal{flex:1;display:flex;flex-direction:column;overflow:hidden}
+#day-journal{flex:1;display:flex;flex-direction:column;overflow:hidden;touch-action:pan-y pinch-zoom}
 .dj-label{font-size:8px;font-weight:700;color:var(--mid);letter-spacing:.06em;
   padding:4px 8px;border-bottom:.5px solid var(--line);flex-shrink:0}
 #journal-canvas-wrap{flex:1;position:relative;overflow:hidden}
 #journal-canvas{position:absolute;inset:0;touch-action:none;cursor:crosshair}
 #journal-grid-canvas{position:absolute;inset:0;pointer-events:none}
+#journal-text{position:absolute;inset:0;border:none;outline:none;resize:none;
+  font-size:12px;line-height:1.8;padding:6px 8px;background:transparent;
+  font-family:inherit;color:var(--ink);z-index:5;
+  -webkit-user-select:text;user-select:text;touch-action:auto}
 
 .tomorrow-input{width:100%;border:none;border-bottom:.5px solid var(--faint);font-size:10px;
   background:transparent;outline:none;padding:1px 2px;
@@ -404,6 +414,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#fff;
       <div class="dj-label">ジャーナリング</div>
       <div id="journal-canvas-wrap">
         <canvas id="journal-grid-canvas"></canvas>
+        <textarea id="journal-text" placeholder="ジャーナリング…"></textarea>
         <canvas id="journal-canvas"></canvas>
       </div>
     </div>
@@ -866,26 +877,61 @@ function buildTimeGrid(){
   }
 }
 
+function btmKey(di,field,i){return`btm-${currentWeekKey}-${di}-${field}-${i}`;}
+function saveBtm(di,field,i,v){localStorage.setItem(btmKey(di,field,i),v);}
+function loadBtm(di,field,i){return localStorage.getItem(btmKey(di,field,i))||'';}
+
 function buildBottomArea(){
   const area=document.getElementById('bottom-area');
   while(area.children.length>1) area.removeChild(area.lastChild);
   for(let di=0;di<7;di++){
     const cell=document.createElement('div');
     cell.className='bottom-cell';
+    const sec=document.createElement('div');
+    sec.className='bottom-section';
     if(di<3){
-      cell.innerHTML=`<div class="bottom-section">
-        <div class="bottom-label">やること</div>
-        <div class="bottom-lines">${[0,1,2].map(()=>'<div class="bottom-line"></div>').join('')}</div>
-        <div class="bottom-divider"></div>
-        <div class="bottom-label">やらないこと</div>
-        <div class="bottom-lines">${[0,1,2].map(()=>'<div class="bottom-line"></div>').join('')}</div>
-      </div>`;
+      // やること
+      const lbY=document.createElement('div');lbY.className='bottom-label';lbY.textContent='やること';
+      sec.appendChild(lbY);
+      const linesY=document.createElement('div');linesY.className='bottom-lines';
+      [0,1,2].forEach(i=>{
+        const inp=document.createElement('input');
+        inp.type='text';inp.className='bottom-input';
+        inp.value=loadBtm(di,'yaru',i);
+        inp.addEventListener('input',()=>saveBtm(di,'yaru',i,inp.value));
+        linesY.appendChild(inp);
+      });
+      sec.appendChild(linesY);
+      const div=document.createElement('div');div.className='bottom-divider';sec.appendChild(div);
+      // やらないこと
+      const lbN=document.createElement('div');lbN.className='bottom-label';lbN.textContent='やらないこと';
+      sec.appendChild(lbN);
+      const linesN=document.createElement('div');linesN.className='bottom-lines';
+      [0,1,2].forEach(i=>{
+        const inp=document.createElement('input');
+        inp.type='text';inp.className='bottom-input';
+        inp.value=loadBtm(di,'notdo',i);
+        inp.addEventListener('input',()=>saveBtm(di,'notdo',i,inp.value));
+        linesN.appendChild(inp);
+      });
+      sec.appendChild(linesN);
     } else {
-      cell.innerHTML=`<div class="bottom-section">
-        <div class="bottom-label">購入記録</div>
-        ${[0,1,2,3].map(()=>`<div class="purchase-row"><div class="purchase-item"></div><div class="purchase-amt"></div></div>`).join('')}
-      </div>`;
+      const lb=document.createElement('div');lb.className='bottom-label';lb.textContent='購入記録';
+      sec.appendChild(lb);
+      [0,1,2,3].forEach(i=>{
+        const row=document.createElement('div');row.className='purchase-row';
+        const item=document.createElement('input');
+        item.type='text';item.className='purchase-input item';
+        item.value=loadBtm(di,'kounyu',i);
+        item.addEventListener('input',()=>saveBtm(di,'kounyu',i,item.value));
+        const amt=document.createElement('input');
+        amt.type='text';amt.className='purchase-input amt';amt.inputMode='numeric';
+        amt.value=loadBtm(di,'kingaku',i);
+        amt.addEventListener('input',()=>saveBtm(di,'kingaku',i,amt.value));
+        row.appendChild(item);row.appendChild(amt);sec.appendChild(row);
+      });
     }
+    cell.appendChild(sec);
     area.appendChild(cell);
   }
 }
@@ -938,6 +984,20 @@ function renderDayView(){
   buildDayFields();
   buildTomorrowLines();
   restoreDrawing('day');
+  // ジャーナルtextarea 復元
+  const jText=document.getElementById('journal-text');
+  if(jText){
+    const dk=dateKey(currentDate);
+    jText.value=localStorage.getItem('journal-text-'+dk)||'';
+    jText.oninput=()=>localStorage.setItem('journal-text-'+dk,jText.value);
+  }
+  // モードに合わせてcanvas/textarea切替
+  const isDraw=currentMode==='draw';
+  const jCanvas=document.getElementById('journal-canvas');
+  if(jCanvas&&jText){
+    jCanvas.style.pointerEvents=isDraw?'auto':'none';
+    jText.style.pointerEvents=isDraw?'none':'auto';
+  }
   setTimeout(()=>{resizeDayCanvas();resizeJournalCanvas();},50);
 }
 
@@ -1377,8 +1437,14 @@ document.getElementById('mode-toggle').addEventListener('click',e=>{
   document.querySelectorAll('.mode-btn').forEach(b=>b.classList.toggle('active',b.dataset.mode===currentMode));
   const isDraw=currentMode==='draw';
   drawCanvas.classList.toggle('active',isDraw&&currentView==='week');
-  document.getElementById('day-draw-canvas').classList.toggle('active',isDraw&&currentView==='day');
   drawToolbar.classList.toggle('active',isDraw);
+  // ジャーナル：手書きモード時はcanvas最前面、それ以外はtextarea入力可
+  const jCanvas=document.getElementById('journal-canvas');
+  const jText=document.getElementById('journal-text');
+  if(jCanvas&&jText){
+    jCanvas.style.pointerEvents=isDraw?'auto':'none';
+    jText.style.pointerEvents=isDraw?'none':'auto';
+  }
 });
 
 // 手書きツールバー
