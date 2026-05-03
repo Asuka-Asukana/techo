@@ -1553,7 +1553,7 @@ const GCAL_COLORS_HEX={
   '11':{bg:'#ffebee',border:'#d50000',text:'#b71c1c'}, // Tomato
 };
 const APP_TO_GCAL={'gray':'8','blue':'7','red':'11','green':'2','yellow':'5','purple':'3','orange':'6','pink':'4'};
-let gcalToken=null,gcalTokenClient=null,gcalEvCache=[],gcalCalColors={};
+let gcalToken=null,gcalTokenClient=null,gcalEvCache=[],gcalCalColors={},gcalCalList=[];
 
 function initGoogleAuth(){
   if(typeof google==='undefined'||gcalTokenClient) return;
@@ -1580,7 +1580,8 @@ async function fetchCalendarColors(){
   try{
     const res=await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList',{headers:{Authorization:`Bearer ${gcalToken}`}});
     const data=await res.json();
-    (data.items||[]).forEach(cal=>{gcalCalColors[cal.id]=cal.backgroundColor||'#039be5';});
+    gcalCalList=(data.items||[]).filter(c=>c.selected!==false);
+    gcalCalList.forEach(cal=>{gcalCalColors[cal.id]=cal.backgroundColor||'#039be5';});
   }catch(e){console.error('GCal calList:',e);}
 }
 
@@ -1592,7 +1593,7 @@ function hexToGcalColor(hex){
 
 function getGcalEventColor(ev){
   if(ev.colorId && GCAL_COLORS_HEX[ev.colorId]) return GCAL_COLORS_HEX[ev.colorId];
-  const calColor=gcalCalColors[ev.organizer?.email]||gcalCalColors['primary'];
+  const calColor=gcalCalColors[ev._calId]||gcalCalColors['primary'];
   if(calColor) return hexToGcalColor(calColor);
   return GCAL_COLORS_HEX['7'];
 }
@@ -1603,10 +1604,14 @@ async function fetchGCalEvents(){
   const end=addDays(weekStart,7);
   const p=new URLSearchParams({timeMin:start.toISOString(),timeMax:end.toISOString(),singleEvents:'true',orderBy:'startTime',maxResults:'250'});
   try{
-    const res=await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?${p}`,{headers:{Authorization:`Bearer ${gcalToken}`}});
-    if(res.status===401){gcalToken=null;const btn=document.getElementById('gcal-btn');btn.textContent='📅 G連携';btn.classList.remove('connected');return;}
-    const data=await res.json();
-    gcalEvCache=data.items||[];
+    const calIds=gcalCalList.length>0?gcalCalList.map(c=>c.id):['primary'];
+    const results=await Promise.all(calIds.map(async calId=>{
+      const res=await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events?${p}`,{headers:{Authorization:`Bearer ${gcalToken}`}});
+      if(res.status===401){gcalToken=null;document.getElementById('gcal-btn').textContent='📅 G連携';document.getElementById('gcal-btn').classList.remove('connected');return[];}
+      const data=await res.json();
+      return(data.items||[]).map(ev=>({...ev,_calId:calId}));
+    }));
+    gcalEvCache=results.flat();
     renderGCalEvents();
   }catch(e){console.error('GCal fetch:',e);}
 }
