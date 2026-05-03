@@ -1590,6 +1590,18 @@ function gcalAutoConnect(){
 }
 setTimeout(gcalAutoConnect,800);
 
+// 50分ごとにトークンを自動更新（1時間で切れるため）
+setInterval(()=>{
+  if(localStorage.getItem('gcal_auto')) gcalAutoConnect();
+},50*60*1000);
+
+// アプリに戻ってきた時も自動再接続
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible'&&localStorage.getItem('gcal_auto')){
+    gcalAutoConnect();
+  }
+});
+
 async function fetchCalendarColors(){
   try{
     const res=await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList',{headers:{Authorization:`Bearer ${gcalToken}`}});
