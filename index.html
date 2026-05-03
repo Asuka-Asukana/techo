@@ -1560,8 +1560,13 @@ function initGoogleAuth(){
   gcalTokenClient=google.accounts.oauth2.initTokenClient({
     client_id:GCAL_CLIENT_ID,scope:GCAL_SCOPE,
     callback:async resp=>{
-      if(resp.error){console.error(resp);return;}
+      if(resp.error){
+        // サイレント接続失敗時はボタンをリセット
+        localStorage.removeItem('gcal_auto');
+        return;
+      }
       gcalToken=resp.access_token;
+      localStorage.setItem('gcal_auto','1');
       const btn=document.getElementById('gcal-btn');
       btn.textContent='📅 同期中';btn.classList.add('connected');
       await fetchCalendarColors();
@@ -1575,6 +1580,15 @@ function gcalLogin(){
   initGoogleAuth();
   gcalTokenClient.requestAccessToken({prompt:gcalToken?'':'consent'});
 }
+
+// 前回連携済みなら自動接続
+function gcalAutoConnect(){
+  if(!localStorage.getItem('gcal_auto')) return;
+  if(typeof google==='undefined'){setTimeout(gcalAutoConnect,500);return;}
+  initGoogleAuth();
+  gcalTokenClient.requestAccessToken({prompt:''});
+}
+setTimeout(gcalAutoConnect,800);
 
 async function fetchCalendarColors(){
   try{
