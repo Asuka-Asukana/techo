@@ -128,25 +128,22 @@ html,body{width:100%;height:100%;overflow:hidden;background:#fff;
 #bottom-area{display:grid;grid-template-columns:38px repeat(7,1fr);
   border-top:1.5px solid var(--ink);overflow:hidden}
 .bottom-time-gap{border-right:1px solid var(--line)}
-.bottom-cell{border-left:.5px solid var(--faint);display:flex;flex-direction:column}
-.bottom-label{font-size:6.5px;color:var(--mid);padding:2px 3px 1px;
-  border-bottom:.5px solid var(--line);background:#fafafa;font-weight:600}
-.bottom-section{flex:1;display:flex;flex-direction:column}
-.bottom-divider{height:.5px;background:var(--line)}
-.bottom-lines{flex:1;display:flex;flex-direction:column;justify-content:space-around;padding:2px 3px}
-.bottom-line{height:1px;background:var(--line)}
-.bottom-input{width:100%;border:none;border-bottom:1px solid var(--line);font-size:8px;
+.bottom-cell{border-left:.5px solid var(--faint);display:flex;flex-direction:column;min-width:0}
+.bottom-mode-sel{width:100%;border:none;border-bottom:.5px solid var(--line);
+  font-size:7px;background:#fafafa;outline:none;padding:2px 2px;color:var(--mid);
+  font-family:inherit;font-weight:600;cursor:pointer;-webkit-appearance:none;
+  text-align:center;}
+.bottom-content{flex:1;display:flex;flex-direction:column;padding:2px 3px;gap:2px;overflow:hidden}
+.bottom-input{width:100%;border:none;border-bottom:.5px solid var(--line);font-size:8px;
   background:transparent;outline:none;padding:1px 2px;color:var(--ink);
-  -webkit-user-select:text;user-select:text;touch-action:auto;font-family:inherit}
-.purchase-input{border:none;border-bottom:1px solid var(--line);font-size:8px;
+  -webkit-user-select:text;user-select:text;touch-action:auto;font-family:inherit;
+  flex:1;min-height:12px}
+.purchase-row{display:flex;align-items:center;gap:2px;flex:1;min-height:12px}
+.purchase-input{border:none;border-bottom:.5px solid var(--line);font-size:8px;
   background:transparent;outline:none;padding:1px 2px;color:var(--ink);
   -webkit-user-select:text;user-select:text;touch-action:auto;font-family:inherit}
 .purchase-input.item{flex:1;min-width:0}
-.purchase-input.amt{width:32px;text-align:right}
-.purchase-row{display:flex;font-size:6.5px;color:var(--mid);
-  padding:0 2px;align-items:center;gap:2px;flex:1}
-.purchase-item{flex:1;border-bottom:.5px solid var(--faint)}
-.purchase-amt{width:30px;border-bottom:.5px solid var(--faint);text-align:right}
+.purchase-input.amt{width:28px;text-align:right}
 
 /* ══ 日ビュー ══ */
 #day-view{flex:1;display:flex;flex-direction:row;overflow:hidden;min-height:0}
@@ -934,57 +931,71 @@ function btmKey(di,field,i){return`btm-${currentWeekKey}-${di}-${field}-${i}`;}
 function saveBtm(di,field,i,v){localStorage.setItem(btmKey(di,field,i),v);}
 function loadBtm(di,field,i){return localStorage.getItem(btmKey(di,field,i))||'';}
 
+const BTM_MODES=[
+  {v:'furikaeri', l:'振り返り'},
+  {v:'yaru',      l:'やりたいこと'},
+  {v:'notdo',     l:'やらないこと'},
+  {v:'kounyu',    l:'購入記録'},
+];
+
+function loadBtmMode(wk,di){
+  return localStorage.getItem(`btm-mode-${wk}-${di}`)||BTM_MODES[di%BTM_MODES.length].v;
+}
+function saveBtmMode(wk,di,v){localStorage.setItem(`btm-mode-${wk}-${di}`,v);}
+
+function buildBottomCellContent(content,di,mode){
+  content.innerHTML='';
+  if(mode==='kounyu'){
+    // 購入記録: 品目 + 金額 × 4行
+    [0,1,2,3].forEach(i=>{
+      const row=document.createElement('div');row.className='purchase-row';
+      const item=document.createElement('input');
+      item.type='text';item.className='purchase-input item';item.placeholder='品目';
+      item.value=loadBtm(di,'kounyu',i);
+      item.addEventListener('input',()=>saveBtm(di,'kounyu',i,item.value));
+      const amt=document.createElement('input');
+      amt.type='text';amt.className='purchase-input amt';amt.inputMode='numeric';amt.placeholder='金額';
+      amt.value=loadBtm(di,'kingaku',i);
+      amt.addEventListener('input',()=>saveBtm(di,'kingaku',i,amt.value));
+      row.appendChild(item);row.appendChild(amt);content.appendChild(row);
+    });
+  } else {
+    // テキスト3行
+    [0,1,2,3].forEach(i=>{
+      const inp=document.createElement('input');
+      inp.type='text';inp.className='bottom-input';
+      inp.value=loadBtm(di,mode,i);
+      inp.addEventListener('input',()=>saveBtm(di,mode,i,inp.value));
+      content.appendChild(inp);
+    });
+  }
+}
+
 function buildBottomArea(){
   const area=document.getElementById('bottom-area');
   while(area.children.length>1) area.removeChild(area.lastChild);
   for(let di=0;di<7;di++){
     const cell=document.createElement('div');
     cell.className='bottom-cell';
-    const sec=document.createElement('div');
-    sec.className='bottom-section';
-    if(di<3){
-      // やること
-      const lbY=document.createElement('div');lbY.className='bottom-label';lbY.textContent='やること';
-      sec.appendChild(lbY);
-      const linesY=document.createElement('div');linesY.className='bottom-lines';
-      [0,1,2].forEach(i=>{
-        const inp=document.createElement('input');
-        inp.type='text';inp.className='bottom-input';
-        inp.value=loadBtm(di,'yaru',i);
-        inp.addEventListener('input',()=>saveBtm(di,'yaru',i,inp.value));
-        linesY.appendChild(inp);
-      });
-      sec.appendChild(linesY);
-      const div=document.createElement('div');div.className='bottom-divider';sec.appendChild(div);
-      // やらないこと
-      const lbN=document.createElement('div');lbN.className='bottom-label';lbN.textContent='やらないこと';
-      sec.appendChild(lbN);
-      const linesN=document.createElement('div');linesN.className='bottom-lines';
-      [0,1,2].forEach(i=>{
-        const inp=document.createElement('input');
-        inp.type='text';inp.className='bottom-input';
-        inp.value=loadBtm(di,'notdo',i);
-        inp.addEventListener('input',()=>saveBtm(di,'notdo',i,inp.value));
-        linesN.appendChild(inp);
-      });
-      sec.appendChild(linesN);
-    } else {
-      const lb=document.createElement('div');lb.className='bottom-label';lb.textContent='購入記録';
-      sec.appendChild(lb);
-      [0,1,2,3].forEach(i=>{
-        const row=document.createElement('div');row.className='purchase-row';
-        const item=document.createElement('input');
-        item.type='text';item.className='purchase-input item';
-        item.value=loadBtm(di,'kounyu',i);
-        item.addEventListener('input',()=>saveBtm(di,'kounyu',i,item.value));
-        const amt=document.createElement('input');
-        amt.type='text';amt.className='purchase-input amt';amt.inputMode='numeric';
-        amt.value=loadBtm(di,'kingaku',i);
-        amt.addEventListener('input',()=>saveBtm(di,'kingaku',i,amt.value));
-        row.appendChild(item);row.appendChild(amt);sec.appendChild(row);
-      });
-    }
-    cell.appendChild(sec);
+    // プルダウン
+    const sel=document.createElement('select');
+    sel.className='bottom-mode-sel';
+    BTM_MODES.forEach(m=>{
+      const opt=document.createElement('option');
+      opt.value=m.v;opt.textContent=m.l;sel.appendChild(opt);
+    });
+    const savedMode=loadBtmMode(currentWeekKey,di);
+    sel.value=savedMode;
+    // コンテンツエリア
+    const content=document.createElement('div');
+    content.className='bottom-content';
+    buildBottomCellContent(content,di,savedMode);
+    sel.addEventListener('change',()=>{
+      saveBtmMode(currentWeekKey,di,sel.value);
+      buildBottomCellContent(content,di,sel.value);
+    });
+    cell.appendChild(sel);
+    cell.appendChild(content);
     area.appendChild(cell);
   }
 }
