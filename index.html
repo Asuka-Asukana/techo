@@ -953,7 +953,7 @@ function saveBtmS(di,mode,slot,i,v){localStorage.setItem(`btm-${currentWeekKey}-
 function buildBottomCellContent(content,di,slot,mode){
   content.innerHTML='';
   if(mode==='kounyu'){
-    [0,1,2].forEach(i=>{
+    [0,1].forEach(i=>{
       const row=document.createElement('div');row.className='purchase-row';
       const item=document.createElement('input');
       item.type='text';item.className='purchase-input item';item.placeholder='品目';
@@ -966,7 +966,7 @@ function buildBottomCellContent(content,di,slot,mode){
       row.appendChild(item);row.appendChild(amt);content.appendChild(row);
     });
   } else {
-    [0,1,2].forEach(i=>{
+    [0,1].forEach(i=>{
       const inp=document.createElement('input');
       inp.type='text';inp.className='bottom-input';
       inp.value=loadBtmS(di,mode,slot,i);
@@ -1005,8 +1005,9 @@ function buildBottomArea(){
   for(let di=0;di<7;di++){
     const cell=document.createElement('div');
     cell.className='bottom-cell';
-    cell.appendChild(buildBottomHalf(di,0)); // 上半分
-    cell.appendChild(buildBottomHalf(di,1)); // 下半分
+    cell.appendChild(buildBottomHalf(di,0)); // 上
+    cell.appendChild(buildBottomHalf(di,1)); // 中
+    cell.appendChild(buildBottomHalf(di,2)); // 下
     area.appendChild(cell);
   }
 }
