@@ -540,6 +540,44 @@ let isDrawing=false, penColor='#1a1a1a', penSize=2, isEraser=false;
 let drawCtx=null, dayDrawCtx=null, journalCtx=null;
 
 // ══════════════════════════════════════
+//  日本の祝日
+// ══════════════════════════════════════
+const jpHolidays = {}; // { 'YYYY-MM-DD': '元日', ... }
+
+async function fetchJpHolidays(year){
+  if(jpHolidays[`_loaded_${year}`]) return;
+  try{
+    const r=await fetch(`https://holidays-jp.github.io/api/v1/${year}/date.json`);
+    if(!r.ok) return;
+    const data=await r.json();
+    Object.assign(jpHolidays, data);
+    jpHolidays[`_loaded_${year}`]=true;
+  }catch(e){}
+}
+
+function isHoliday(d){
+  const key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  return key in jpHolidays && !key.startsWith('_');
+}
+
+function getHolidayName(d){
+  const key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  return jpHolidays[key]||null;
+}
+
+// 今年・来年・去年の祝日をあらかじめ取得
+(async()=>{
+  const y=new Date().getFullYear();
+  await Promise.all([fetchJpHolidays(y-1),fetchJpHolidays(y),fetchJpHolidays(y+1)]);
+  // 既に表示中ならリフレッシュ
+  if(typeof currentView!=='undefined'){
+    if(currentView==='month') renderMonthView();
+    else if(currentView==='week') renderWeek();
+    else if(currentView==='day') renderDayView();
+  }
+})();
+
+// ══════════════════════════════════════
 //  ユーティリティ
 // ══════════════════════════════════════
 function getWeekStart(d){
@@ -607,6 +645,10 @@ function renderMonthView(){
   const y=currentDate.getFullYear(), m=currentDate.getMonth();
   document.getElementById('nav-title').textContent=`${y}年${m+1}月`;
   document.getElementById('nav-sub').textContent='';
+  // 祝日データが未取得の年なら取得してリレンダー
+  if(!jpHolidays[`_loaded_${y}`]){
+    fetchJpHolidays(y).then(()=>buildMonthCalendar(y,m));
+  }
   buildMonthCalendar(y,m);
   buildMonthGoals(y,m);
   buildMonthHabitGrid(y,m);
@@ -739,9 +781,17 @@ function buildMonthCalendar(y,m){
       if(isSameDay(cellDate,today)) cell.classList.add('today');
       const dateSpan=document.createElement('div');
       dateSpan.className='mc-date';
-      dateSpan.style.color=dow===5?'var(--blue)':dow===6?'var(--red)':'var(--ink)';
+      dateSpan.style.color=(dow===5&&!isHoliday(cellDate))?'var(--blue)':(dow===6||isHoliday(cellDate))?'var(--red)':'var(--ink)';
       dateSpan.textContent=cellDate.getDate();
       cell.appendChild(dateSpan);
+      // 祝日名
+      const hName=getHolidayName(cellDate);
+      if(hName){
+        const hLabel=document.createElement('div');
+        hLabel.style.cssText='font-size:6px;color:var(--red);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+        hLabel.textContent=hName;
+        cell.appendChild(hLabel);
+      }
       // イベント表示
       const evs=getEventsForDate(cellDate);
       if(evs.length>0){
@@ -795,12 +845,13 @@ function buildDayHeaders(){
   while(c.children.length>1) c.removeChild(c.lastChild);
   for(let di=0;di<7;di++){
     const d=addDays(weekStart,di),wd=(d.getDay()+6)%7;
-    const col=wd===5?'var(--blue)':wd===6?'var(--red)':'var(--ink)';
+    const col=(wd===5&&!isHoliday(d))?'var(--blue)':(wd===6||isHoliday(d))?'var(--red)':'var(--ink)';
     const el=document.createElement('div');
     el.className='day-header';el.dataset.di=di;
     el.innerHTML=`
       <div class="dh-name" style="color:${col}">${DAYS_JP[wd]}</div>
       <div class="dh-date" style="color:${col}">${d.getMonth()+1}/${d.getDate()}</div>
+      ${getHolidayName(d)?`<div style="font-size:6px;color:var(--red);text-align:center;line-height:1.2;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">${getHolidayName(d)}</div>`:''}
       <div class="dh-row">
         <span class="dh-label">起床</span>
         <select class="time-sel-sm" data-field="wake" data-di="${di}">
@@ -970,7 +1021,7 @@ function renderDayView(){
   currentWeekKey=weekKey(ws);
   activeDayDi=(currentDate.getDay()+6)%7;
   const wd=(currentDate.getDay()+6)%7;
-  const dayColor=wd===5?'var(--blue)':wd===6?'var(--red)':'var(--ink)';
+  const dayColor=(wd===5&&!isHoliday(currentDate))?'var(--blue)':(wd===6||isHoliday(currentDate))?'var(--red)':'var(--ink)';
   document.getElementById('nav-title').textContent=
     `${currentDate.getFullYear()}/${currentDate.getMonth()+1}/${currentDate.getDate()} (${DAYS_JP[wd]})`;
   document.getElementById('nav-sub').textContent='';
@@ -979,7 +1030,9 @@ function renderDayView(){
   document.getElementById('df-date-num').style.color=dayColor;
   document.getElementById('df-date-info').textContent=`${currentDate.getFullYear()}.${String(currentDate.getMonth()+1).padStart(2,'0')}`;
   const dowEl=document.getElementById('df-date-dow');
-  dowEl.textContent=DAYS_JP[wd]; dowEl.style.color=dayColor;
+  const hName=getHolidayName(currentDate);
+  dowEl.textContent=hName?`${DAYS_JP[wd]}・${hName}`:DAYS_JP[wd];
+  dowEl.style.color=dayColor;
   buildDayTimeGrid();
   renderDayEvents();
   buildHabitTracker();
