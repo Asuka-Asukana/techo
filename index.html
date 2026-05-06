@@ -611,6 +611,7 @@ function renderMonthView(){
   buildMonthGoals(y,m);
   buildMonthHabitGrid(y,m);
   buildMonthDiary(y,m);
+  fetchAndRenderGCalMonth(y,m);
 }
 
 function monthSidebarKey(y,m){return`${y}-${String(m+1).padStart(2,'0')}`;}
@@ -732,6 +733,7 @@ function buildMonthCalendar(y,m){
       const cell=document.createElement('div');
       cell.className='month-cell';
       const cellDate=new Date(y,m,dayCount);
+      cell.dataset.date=`${cellDate.getFullYear()}-${String(cellDate.getMonth()+1).padStart(2,'0')}-${String(cellDate.getDate()).padStart(2,'0')}`;
       const dow=col; // 0=月
       if(dayCount<1||dayCount>daysInMonth) cell.classList.add('other-month');
       if(isSameDay(cellDate,today)) cell.classList.add('today');
@@ -999,6 +1001,7 @@ function renderDayView(){
     jText.style.pointerEvents=isDraw?'none':'auto';
   }
   setTimeout(()=>{resizeDayCanvas();resizeJournalCanvas();},50);
+  fetchAndRenderGCalDay();
 }
 
 function buildDayTimeGrid(){
@@ -1640,6 +1643,64 @@ async function fetchGCalEvents(){
     gcalEvCache=results.flat();
     renderGCalEvents();
   }catch(e){console.error('GCal fetch:',e);}
+}
+
+// 指定期間の全カレンダーイベント取得（日・月ビュー用）
+async function fetchGCalRange(start,end){
+  if(!gcalToken) return [];
+  const calIds=gcalCalList.length>0?gcalCalList.map(c=>c.id):['primary'];
+  const p=new URLSearchParams({timeMin:start.toISOString(),timeMax:end.toISOString(),singleEvents:'true',orderBy:'startTime',maxResults:'250'});
+  const results=await Promise.all(calIds.map(id=>
+    fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(id)}/events?${p}`,
+      {headers:{Authorization:`Bearer ${gcalToken}`}})
+      .then(r=>r.json()).then(d=>(d.items||[]).map(ev=>({...ev,_calId:id}))).catch(()=>[])
+  ));
+  return results.flat();
+}
+
+// 日ビュー：GCalイベント表示
+async function fetchAndRenderGCalDay(){
+  if(!gcalToken) return;
+  document.querySelectorAll('#day-time-grid .gcal-ev-block').forEach(b=>b.remove());
+  const start=new Date(currentDate);start.setHours(0,0,0,0);
+  const end=new Date(currentDate);end.setHours(23,59,59,999);
+  const events=await fetchGCalRange(start,end);
+  events.forEach(ev=>{
+    if(!ev.start?.dateTime) return;
+    const sd=new Date(ev.start.dateTime),ed=new Date(ev.end.dateTime);
+    const sh=sd.getHours()+sd.getMinutes()/60,eh=ed.getHours()+ed.getMinutes()/60;
+    if(sh>=END_H||eh<=START_H) return;
+    const cs=Math.max(sh,START_H),ce=Math.min(eh,END_H);
+    const sf=(cs-START_H)/N_HOURS,ef=(ce-START_H)/N_HOURS;
+    const color=getGcalEventColor(ev);
+    const col=document.querySelector('.day-single-col');if(!col) return;
+    const block=document.createElement('div');
+    block.className='event-block gcal-ev-block';
+    block.style.cssText=`top:${sf*100}%;height:${Math.max((ef-sf)*100,2)}%;background:${color.bg};border-left:3px solid ${color.border};color:${color.text};`;
+    block.innerHTML=`<div class="event-time">${fmtH(sh)}–${fmtH(eh)}</div><div class="event-text">${ev.summary||'(無題)'}</div>`;
+    col.appendChild(block);
+  });
+}
+
+// 月ビュー：GCalドット表示
+async function fetchAndRenderGCalMonth(y,m){
+  if(!gcalToken) return;
+  const start=new Date(y,m,1);
+  const end=new Date(y,m+1,0,23,59,59,999);
+  const events=await fetchGCalRange(start,end);
+  events.forEach(ev=>{
+    const dt=new Date(ev.start.dateTime||ev.start.date);
+    const dk=`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+    const cell=document.querySelector(`.month-cell[data-date="${dk}"]`);
+    if(!cell) return;
+    let dotsWrap=cell.querySelector('.mc-dots');
+    if(!dotsWrap){dotsWrap=document.createElement('div');dotsWrap.className='mc-dots';const dateSpan=cell.querySelector('.mc-date');if(dateSpan)cell.insertBefore(dotsWrap,dateSpan.nextSibling);else cell.appendChild(dotsWrap);}
+    if(dotsWrap.children.length<6){
+      const dot=document.createElement('div');dot.className='mc-dot';
+      dot.style.background=getGcalEventColor(ev).border;
+      dotsWrap.appendChild(dot);
+    }
+  });
 }
 
 function renderGCalEvents(){
