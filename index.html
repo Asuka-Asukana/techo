@@ -129,16 +129,18 @@ html,body{width:100%;height:100%;overflow:hidden;background:#fff;
   border-top:1.5px solid var(--ink);overflow:hidden}
 .bottom-time-gap{border-right:1px solid var(--line)}
 .bottom-cell{border-left:.5px solid var(--faint);display:flex;flex-direction:column;min-width:0}
+.bottom-half{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.bottom-half+.bottom-half{border-top:.5px solid var(--line)}
 .bottom-mode-sel{width:100%;border:none;border-bottom:.5px solid var(--line);
   font-size:7px;background:#fafafa;outline:none;padding:2px 2px;color:var(--mid);
   font-family:inherit;font-weight:600;cursor:pointer;-webkit-appearance:none;
-  text-align:center;}
+  text-align:center;flex-shrink:0}
 .bottom-content{flex:1;display:flex;flex-direction:column;padding:2px 3px;gap:2px;overflow:hidden}
 .bottom-input{width:100%;border:none;border-bottom:.5px solid var(--line);font-size:8px;
   background:transparent;outline:none;padding:1px 2px;color:var(--ink);
   -webkit-user-select:text;user-select:text;touch-action:auto;font-family:inherit;
-  flex:1;min-height:12px}
-.purchase-row{display:flex;align-items:center;gap:2px;flex:1;min-height:12px}
+  flex:1;min-height:10px}
+.purchase-row{display:flex;align-items:center;gap:2px;flex:1;min-height:10px}
 .purchase-input{border:none;border-bottom:.5px solid var(--line);font-size:8px;
   background:transparent;outline:none;padding:1px 2px;color:var(--ink);
   -webkit-user-select:text;user-select:text;touch-action:auto;font-family:inherit}
@@ -938,37 +940,63 @@ const BTM_MODES=[
   {v:'kounyu',    l:'購入記録'},
 ];
 
-function loadBtmMode(wk,di){
-  return localStorage.getItem(`btm-mode-${wk}-${di}`)||BTM_MODES[di%BTM_MODES.length].v;
+function loadBtmMode(wk,di,slot){
+  const def=BTM_MODES[(di*2+slot)%BTM_MODES.length].v;
+  return localStorage.getItem(`btm-mode-${wk}-${di}-${slot}`)||def;
 }
-function saveBtmMode(wk,di,v){localStorage.setItem(`btm-mode-${wk}-${di}`,v);}
+function saveBtmMode(wk,di,slot,v){localStorage.setItem(`btm-mode-${wk}-${di}-${slot}`,v);}
 
-function buildBottomCellContent(content,di,mode){
+// modeKey: モードキー + スロット番号でデータを区別
+function loadBtmS(di,mode,slot,i){return localStorage.getItem(`btm-${currentWeekKey}-${di}-${mode}-s${slot}-${i}`)||'';}
+function saveBtmS(di,mode,slot,i,v){localStorage.setItem(`btm-${currentWeekKey}-${di}-${mode}-s${slot}-${i}`,v);}
+
+function buildBottomCellContent(content,di,slot,mode){
   content.innerHTML='';
   if(mode==='kounyu'){
-    // 購入記録: 品目 + 金額 × 4行
-    [0,1,2,3].forEach(i=>{
+    [0,1,2].forEach(i=>{
       const row=document.createElement('div');row.className='purchase-row';
       const item=document.createElement('input');
       item.type='text';item.className='purchase-input item';item.placeholder='品目';
-      item.value=loadBtm(di,'kounyu',i);
-      item.addEventListener('input',()=>saveBtm(di,'kounyu',i,item.value));
+      item.value=loadBtmS(di,'kounyu',slot,i);
+      item.addEventListener('input',()=>saveBtmS(di,'kounyu',slot,i,item.value));
       const amt=document.createElement('input');
-      amt.type='text';amt.className='purchase-input amt';amt.inputMode='numeric';amt.placeholder='金額';
-      amt.value=loadBtm(di,'kingaku',i);
-      amt.addEventListener('input',()=>saveBtm(di,'kingaku',i,amt.value));
+      amt.type='text';amt.className='purchase-input amt';amt.inputMode='numeric';amt.placeholder='¥';
+      amt.value=loadBtmS(di,'kingaku',slot,i);
+      amt.addEventListener('input',()=>saveBtmS(di,'kingaku',slot,i,amt.value));
       row.appendChild(item);row.appendChild(amt);content.appendChild(row);
     });
   } else {
-    // テキスト3行
-    [0,1,2,3].forEach(i=>{
+    [0,1,2].forEach(i=>{
       const inp=document.createElement('input');
       inp.type='text';inp.className='bottom-input';
-      inp.value=loadBtm(di,mode,i);
-      inp.addEventListener('input',()=>saveBtm(di,mode,i,inp.value));
+      inp.value=loadBtmS(di,mode,slot,i);
+      inp.addEventListener('input',()=>saveBtmS(di,mode,slot,i,inp.value));
       content.appendChild(inp);
     });
   }
+}
+
+function buildBottomHalf(di,slot){
+  const half=document.createElement('div');
+  half.className='bottom-half';
+  const sel=document.createElement('select');
+  sel.className='bottom-mode-sel';
+  BTM_MODES.forEach(m=>{
+    const opt=document.createElement('option');
+    opt.value=m.v;opt.textContent=m.l;sel.appendChild(opt);
+  });
+  const savedMode=loadBtmMode(currentWeekKey,di,slot);
+  sel.value=savedMode;
+  const content=document.createElement('div');
+  content.className='bottom-content';
+  buildBottomCellContent(content,di,slot,savedMode);
+  sel.addEventListener('change',()=>{
+    saveBtmMode(currentWeekKey,di,slot,sel.value);
+    buildBottomCellContent(content,di,slot,sel.value);
+  });
+  half.appendChild(sel);
+  half.appendChild(content);
+  return half;
 }
 
 function buildBottomArea(){
@@ -977,25 +1005,8 @@ function buildBottomArea(){
   for(let di=0;di<7;di++){
     const cell=document.createElement('div');
     cell.className='bottom-cell';
-    // プルダウン
-    const sel=document.createElement('select');
-    sel.className='bottom-mode-sel';
-    BTM_MODES.forEach(m=>{
-      const opt=document.createElement('option');
-      opt.value=m.v;opt.textContent=m.l;sel.appendChild(opt);
-    });
-    const savedMode=loadBtmMode(currentWeekKey,di);
-    sel.value=savedMode;
-    // コンテンツエリア
-    const content=document.createElement('div');
-    content.className='bottom-content';
-    buildBottomCellContent(content,di,savedMode);
-    sel.addEventListener('change',()=>{
-      saveBtmMode(currentWeekKey,di,sel.value);
-      buildBottomCellContent(content,di,sel.value);
-    });
-    cell.appendChild(sel);
-    cell.appendChild(content);
+    cell.appendChild(buildBottomHalf(di,0)); // 上半分
+    cell.appendChild(buildBottomHalf(di,1)); // 下半分
     area.appendChild(cell);
   }
 }
