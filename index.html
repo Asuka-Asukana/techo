@@ -126,11 +126,12 @@ html,body{width:100%;height:100%;overflow:hidden;background:#fff;
   display:none;touch-action:none;cursor:crosshair;z-index:10}
 #draw-canvas.active{display:block}
 #bottom-area{display:grid;grid-template-columns:38px repeat(7,1fr);
-  border-top:1.5px solid var(--ink);overflow:hidden}
+  grid-template-rows:1fr;align-items:stretch;
+  border-top:1.5px solid var(--ink);overflow:hidden;height:100%}
 .bottom-time-gap{border-right:1px solid var(--line)}
-.bottom-cell{border-left:.5px solid var(--faint);display:flex;flex-direction:column;min-width:0}
+.bottom-cell{border-left:.5px solid var(--faint);display:flex;flex-direction:column;min-width:0;height:100%}
 .bottom-half{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden}
-.bottom-half+.bottom-half{border-top:.5px solid var(--line)}
+.bottom-half+.bottom-half{border-top:1px solid var(--line)}
 .bottom-mode-sel{width:100%;border:none;border-bottom:.5px solid var(--line);
   font-size:7px;background:#fafafa;outline:none;padding:2px 2px;color:var(--mid);
   font-family:inherit;font-weight:600;cursor:pointer;-webkit-appearance:none;
