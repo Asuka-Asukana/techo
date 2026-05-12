@@ -1729,12 +1729,8 @@ async function fetchAndRenderGCalDay(){
   events.forEach(ev=>{
     const color=getGcalEventColor(ev);
     if(ev.start?.date){
-      // 終日イベント：タイムライン上部に帯として表示
-      const block=document.createElement('div');
-      block.className='event-block gcal-ev-block gcal-allday-bar';
-      block.style.cssText=`top:0%;height:100%;background:${color.bg};border-left:3px solid ${color.border};color:${color.text};opacity:.45;pointer-events:none;z-index:1;`;
-      block.innerHTML=`<div class="event-text" style="font-size:7px">${ev.summary||'(終日)'}</div>`;
-      col.appendChild(block);
+      // 終日イベントはタイムラインに表示しない
+      return;
     } else if(ev.start?.dateTime){
       const sd=new Date(ev.start.dateTime),ed=new Date(ev.end.dateTime);
       // 日跨ぎ対応：この日の範囲にクリップ
@@ -1805,21 +1801,8 @@ function renderGCalEvents(){
   gcalEvCache.forEach(ev=>{
     const color=getGcalEventColor(ev);
     if(ev.start?.date){
-      // 終日イベント（日跨ぎ含む）
-      const startD=new Date(ev.start.date);
-      const endD=new Date(ev.end.date); // Googleは終了日が排他
-      for(let di=0;di<7;di++){
-        const d=addDays(weekStart,di);
-        d.setHours(0,0,0,0);
-        const dEnd=new Date(d);dEnd.setHours(23,59,59,999);
-        if(d>=endD||dEnd<startD) continue;
-        const col=document.querySelector(`.day-col[data-di="${di}"]`);if(!col) continue;
-        const block=document.createElement('div');
-        block.className='event-block gcal-ev-block';
-        block.style.cssText=`top:0%;height:100%;background:${color.bg};border-left:3px solid ${color.border};color:${color.text};opacity:.5;pointer-events:none;`;
-        block.innerHTML=`<div class="event-text" style="font-size:7px">${ev.summary||'(終日)'}</div>`;
-        col.appendChild(block);
-      }
+      // 終日イベントはタイムラインに表示しない（ヘッダーの日付色で識別）
+      return;
     } else if(ev.start?.dateTime){
       // 時刻指定イベント（日跨ぎ含む）
       const sd=new Date(ev.start.dateTime),ed=new Date(ev.end.dateTime);
