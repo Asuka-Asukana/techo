@@ -168,11 +168,17 @@ html,body{width:100%;height:100%;overflow:hidden;background:#fff;
   background:transparent;outline:none;padding:2px 0;margin-bottom:2px;
   -webkit-user-select:text;user-select:text;touch-action:auto;color:var(--ink);display:block}
 .df-input:last-child{margin-bottom:0}
-/* ハビットトラッカー □のみ・縦1列・4段 */
-.df-habit-grid{display:flex;flex-direction:column;gap:6px;padding:2px 0}
-.df-habit-cb{width:16px;height:16px;border:1.5px solid var(--line);border-radius:3px;
+/* ハビットトラッカー */
+.df-habit-grid{display:flex;flex-direction:column;gap:0;padding:2px 0;width:100%}
+.habit-row{display:flex;align-items:center;gap:6px;padding:3px 2px;
+  border-bottom:.5px solid var(--faint)}
+.habit-row:last-child{border-bottom:none}
+.df-habit-cb{width:14px;height:14px;border:1.5px solid var(--line);border-radius:2px;
   cursor:pointer;flex-shrink:0;transition:background .1s}
 .df-habit-cb.done{background:var(--ink);border-color:var(--ink)}
+.habit-label-inp{flex:1;border:none;outline:none;font-size:9px;background:transparent;
+  color:var(--ink);font-family:inherit;min-width:0;
+  -webkit-user-select:text;user-select:text;touch-action:auto}
 
 /* 中央カラム：タイムライン */
 #day-timeline{flex:0 0 18%;border-right:1px solid var(--line);
@@ -321,12 +327,9 @@ html,body{width:100%;height:100%;overflow:hidden;background:#fff;
         <div class="msb-title">今月の目標</div>
         <div class="msb-lines" id="month-goals-lines"></div>
       </div>
-      <div class="msb-section" style="flex:1;min-height:0">
+      <div class="msb-section" style="flex:1;min-height:0;overflow-y:auto">
         <div class="msb-title">HABIT TRACKER</div>
-        <div id="month-habit-wrap" style="flex:1;position:relative;overflow:hidden;min-height:60px">
-          <canvas id="month-habit-grid-canvas" style="position:absolute;inset:0;pointer-events:none"></canvas>
-          <canvas id="month-habit-canvas" style="position:absolute;inset:0;touch-action:none;cursor:crosshair"></canvas>
-        </div>
+        <div class="df-habit-grid" id="month-habit-list"></div>
       </div>
       <div class="msb-section" style="flex:1">
         <div class="msb-title">未来日記</div>
@@ -598,6 +601,8 @@ function loadDrawing(k){return localStorage.getItem('draw-'+k)||null;}
 function saveDrawing(k,u){try{localStorage.setItem('draw-'+k,u)}catch(e){console.warn(e)}}
 function loadHabits(k){try{return JSON.parse(localStorage.getItem('habit-'+k)||'[]')}catch{return[]}}
 function saveHabits(k,a){localStorage.setItem('habit-'+k,JSON.stringify(a));}
+function loadHabitLabel(i){return localStorage.getItem('habit-label-'+i)||'';}
+function saveHabitLabel(i,v){localStorage.setItem('habit-label-'+i,v);}
 function loadJournal(k){return localStorage.getItem('journal-'+k)||null;}
 function saveJournal(k,u){try{localStorage.setItem('journal-'+k,u)}catch(e){console.warn(e)}}
 function loadTomorrow(k){try{return JSON.parse(localStorage.getItem('tomorrow-'+k)||'[]')}catch{return[]}}
@@ -684,52 +689,8 @@ function buildMonthGoals(y,m){
 }
 
 function buildMonthHabitGrid(y,m){
-  setTimeout(()=>{
-    const mk=monthSidebarKey(y,m);
-    const data=loadMonthData(mk);
-    const wrap=document.getElementById('month-habit-wrap');
-    if(!wrap) return;
-    const rect=wrap.getBoundingClientRect();
-    const dpr=window.devicePixelRatio||1;
-    const gc=document.getElementById('month-habit-grid-canvas');
-    const dc=document.getElementById('month-habit-canvas');
-    [gc,dc].forEach(c=>{
-      c.width=rect.width*dpr;c.height=rect.height*dpr;
-      c.style.width=rect.width+'px';c.style.height=rect.height+'px';
-    });
-    // 方眼グリッド
-    const gctx=gc.getContext('2d');
-    gctx.strokeStyle='#eeeeee';gctx.lineWidth=0.5;
-    const step=4*dpr;
-    for(let x=0;x<gc.width;x+=step){gctx.beginPath();gctx.moveTo(x,0);gctx.lineTo(x,gc.height);gctx.stroke();}
-    for(let yy=0;yy<gc.height;yy+=step){gctx.beginPath();gctx.moveTo(0,yy);gctx.lineTo(gc.width,yy);gctx.stroke();}
-    // 保存済み描画を復元
-    const saved=localStorage.getItem('month-habit-draw-'+mk);
-    if(saved){const img=new Image();img.onload=()=>{const ctx=dc.getContext('2d');ctx.scale(dpr,dpr);ctx.drawImage(img,0,0,rect.width,rect.height);};img.src=saved;}
-    // 描画イベント
-    const ctx=dc.getContext('2d');
-    ctx.lineCap='round';ctx.lineJoin='round';
-    let drawing=false;
-    dc.onpointerdown=e=>{
-      e.preventDefault();drawing=true;
-      const r=dc.getBoundingClientRect();
-      ctx.beginPath();ctx.moveTo(e.clientX-r.left,e.clientY-r.top);
-      dc.setPointerCapture(e.pointerId);
-    };
-    dc.onpointermove=e=>{
-      if(!drawing) return;
-      e.preventDefault();
-      const r=dc.getBoundingClientRect();
-      ctx.globalCompositeOperation=isEraser?'destination-out':'source-over';
-      ctx.strokeStyle=penColor;ctx.lineWidth=isEraser?penSize*6:penSize*(e.pressure||1);
-      ctx.lineTo(e.clientX-r.left,e.clientY-r.top);ctx.stroke();
-      ctx.beginPath();ctx.moveTo(e.clientX-r.left,e.clientY-r.top);
-    };
-    dc.onpointerup=e=>{
-      if(!drawing) return;drawing=false;ctx.beginPath();
-      try{localStorage.setItem('month-habit-draw-'+mk,dc.toDataURL('image/png'));}catch(e){console.warn(e);}
-    };
-  },50);
+  // 選択中の日付のハビット状態を表示（10行）
+  buildHabitRows('month-habit-list', dateKey(currentDate), 10);
 }
 
 function buildMonthDiary(y,m){
@@ -1143,24 +1104,35 @@ function renderDayEvents(){
   });
 }
 
-function buildHabitTracker(){
-  const dk=dateKey(currentDate);
+function buildHabitRows(containerId, dk, count){
   const done=loadHabits(dk);
-  const list=document.getElementById('habit-list');
+  const list=document.getElementById(containerId);
+  if(!list) return;
   list.innerHTML='';
-  // □だけ4個・縦1列
-  for(let i=0;i<4;i++){
+  for(let i=0;i<count;i++){
+    const row=document.createElement('div');
+    row.className='habit-row';
     const cb=document.createElement('div');
     cb.className='df-habit-cb'+(done.includes('h'+i)?' done':'');
     cb.onclick=()=>{
-      const cur=loadHabits(dateKey(currentDate));
+      const cur=loadHabits(dk);
       const idx=cur.indexOf('h'+i);
       if(idx>=0) cur.splice(idx,1); else cur.push('h'+i);
-      saveHabits(dateKey(currentDate),cur);
+      saveHabits(dk,cur);
       cb.classList.toggle('done');
     };
-    list.appendChild(cb);
+    const inp=document.createElement('input');
+    inp.type='text';inp.className='habit-label-inp';
+    inp.placeholder=`ハビット${i+1}`;
+    inp.value=loadHabitLabel(i);
+    inp.addEventListener('input',()=>saveHabitLabel(i,inp.value));
+    row.appendChild(cb);row.appendChild(inp);
+    list.appendChild(row);
   }
+}
+
+function buildHabitTracker(){
+  buildHabitRows('habit-list', dateKey(currentDate), 4);
 }
 
 function buildDayFields(){
