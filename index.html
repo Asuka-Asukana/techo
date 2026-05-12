@@ -1767,11 +1767,13 @@ async function fetchAndRenderGCalDay(){
       const sd=new Date(ev.start.dateTime),ed=new Date(ev.end.dateTime);
       // 日跨ぎ対応：この日の範囲にクリップ
       const dayStart=new Date(currentDate);dayStart.setHours(0,0,0,0);
-      const dayEnd=new Date(currentDate);dayEnd.setHours(24,0,0,0);
+      const dayEnd=new Date(dayStart);dayEnd.setDate(dayEnd.getDate()+1); // 翌日0時
+      if(ed<=dayStart||sd>=dayEnd) return; // この日と重ならない
       const clippedSd=sd<dayStart?dayStart:sd;
       const clippedEd=ed>dayEnd?dayEnd:ed;
-      const sh=clippedSd.getHours()+clippedSd.getMinutes()/60;
-      const eh=clippedEd.getHours()+clippedEd.getMinutes()/60;
+      // 時刻を「この日の0時からの時間(h)」で計算
+      const sh=(clippedSd-dayStart)/3600000;
+      const eh=(clippedEd-dayStart)/3600000; // 終日続く場合は24
       if(sh>=END_H||eh<=START_H) return;
       const cs=Math.max(sh,START_H),ce=Math.min(eh,END_H);
       const sf=(cs-START_H)/N_HOURS,ef=(ce-START_H)/N_HOURS;
@@ -1779,7 +1781,7 @@ async function fetchAndRenderGCalDay(){
       block.className='event-block gcal-ev-block';
       block.style.cssText=`top:${sf*100}%;height:${Math.max((ef-sf)*100,2)}%;background:${color.bg};border-left:3px solid ${color.border};color:${color.text};`;
       const isCont=sd<dayStart,isEnd=ed<=dayEnd;
-      block.innerHTML=`<div class="event-time">${isCont?'↓':fmtH(sh)}–${isEnd?fmtH(eh>24?24:eh):'→'}</div><div class="event-text">${ev.summary||'(無題)'}</div>`;
+      block.innerHTML=`<div class="event-time">${isCont?'↓':fmtH(sh)}–${isEnd?fmtH(Math.min(eh,24)):'→'}</div><div class="event-text">${ev.summary||'(無題)'}</div>`;
       col.appendChild(block);
     }
   });
