@@ -1749,23 +1749,39 @@ async function fetchGCalRange(start,end){
 async function fetchAndRenderGCalDay(){
   if(!gcalToken) return;
   document.querySelectorAll('#day-time-grid .gcal-ev-block').forEach(b=>b.remove());
+  document.querySelectorAll('.gcal-allday-bar').forEach(b=>b.remove());
   const start=new Date(currentDate);start.setHours(0,0,0,0);
   const end=new Date(currentDate);end.setHours(23,59,59,999);
   const events=await fetchGCalRange(start,end);
+  const col=document.querySelector('.day-single-col');if(!col) return;
   events.forEach(ev=>{
-    if(!ev.start?.dateTime) return;
-    const sd=new Date(ev.start.dateTime),ed=new Date(ev.end.dateTime);
-    const sh=sd.getHours()+sd.getMinutes()/60,eh=ed.getHours()+ed.getMinutes()/60;
-    if(sh>=END_H||eh<=START_H) return;
-    const cs=Math.max(sh,START_H),ce=Math.min(eh,END_H);
-    const sf=(cs-START_H)/N_HOURS,ef=(ce-START_H)/N_HOURS;
     const color=getGcalEventColor(ev);
-    const col=document.querySelector('.day-single-col');if(!col) return;
-    const block=document.createElement('div');
-    block.className='event-block gcal-ev-block';
-    block.style.cssText=`top:${sf*100}%;height:${Math.max((ef-sf)*100,2)}%;background:${color.bg};border-left:3px solid ${color.border};color:${color.text};`;
-    block.innerHTML=`<div class="event-time">${fmtH(sh)}–${fmtH(eh)}</div><div class="event-text">${ev.summary||'(無題)'}</div>`;
-    col.appendChild(block);
+    if(ev.start?.date){
+      // 終日イベント：タイムライン上部に帯として表示
+      const block=document.createElement('div');
+      block.className='event-block gcal-ev-block gcal-allday-bar';
+      block.style.cssText=`top:0%;height:100%;background:${color.bg};border-left:3px solid ${color.border};color:${color.text};opacity:.45;pointer-events:none;z-index:1;`;
+      block.innerHTML=`<div class="event-text" style="font-size:7px">${ev.summary||'(終日)'}</div>`;
+      col.appendChild(block);
+    } else if(ev.start?.dateTime){
+      const sd=new Date(ev.start.dateTime),ed=new Date(ev.end.dateTime);
+      // 日跨ぎ対応：この日の範囲にクリップ
+      const dayStart=new Date(currentDate);dayStart.setHours(0,0,0,0);
+      const dayEnd=new Date(currentDate);dayEnd.setHours(24,0,0,0);
+      const clippedSd=sd<dayStart?dayStart:sd;
+      const clippedEd=ed>dayEnd?dayEnd:ed;
+      const sh=clippedSd.getHours()+clippedSd.getMinutes()/60;
+      const eh=clippedEd.getHours()+clippedEd.getMinutes()/60;
+      if(sh>=END_H||eh<=START_H) return;
+      const cs=Math.max(sh,START_H),ce=Math.min(eh,END_H);
+      const sf=(cs-START_H)/N_HOURS,ef=(ce-START_H)/N_HOURS;
+      const block=document.createElement('div');
+      block.className='event-block gcal-ev-block';
+      block.style.cssText=`top:${sf*100}%;height:${Math.max((ef-sf)*100,2)}%;background:${color.bg};border-left:3px solid ${color.border};color:${color.text};`;
+      const isCont=sd<dayStart,isEnd=ed<=dayEnd;
+      block.innerHTML=`<div class="event-time">${isCont?'↓':fmtH(sh)}–${isEnd?fmtH(eh>24?24:eh):'→'}</div><div class="event-text">${ev.summary||'(無題)'}</div>`;
+      col.appendChild(block);
+    }
   });
 }
 
@@ -1775,9 +1791,7 @@ async function fetchAndRenderGCalMonth(y,m){
   const start=new Date(y,m,1);
   const end=new Date(y,m+1,0,23,59,59,999);
   const events=await fetchGCalRange(start,end);
-  events.forEach(ev=>{
-    const dt=new Date(ev.start.dateTime||ev.start.date);
-    const dk=`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+  function addDotToCell(dk,ev){
     const cell=document.querySelector(`.month-cell[data-date="${dk}"]`);
     if(!cell) return;
     let dotsWrap=cell.querySelector('.mc-dots');
@@ -1787,28 +1801,77 @@ async function fetchAndRenderGCalMonth(y,m){
       dot.style.background=getGcalEventColor(ev).border;
       dotsWrap.appendChild(dot);
     }
+  }
+  events.forEach(ev=>{
+    if(ev.start?.date){
+      // 終日・日跨ぎ：全日程にドットを追加
+      let d=new Date(ev.start.date);
+      const endD=new Date(ev.end.date); // 排他
+      while(d<endD){
+        const dk=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        addDotToCell(dk,ev);
+        d=addDays(d,1);
+      }
+    } else if(ev.start?.dateTime){
+      // 時刻指定：開始日〜終了日にドットを追加
+      const sd=new Date(ev.start.dateTime),ed=new Date(ev.end.dateTime);
+      let d=new Date(sd.getFullYear(),sd.getMonth(),sd.getDate());
+      const endDay=new Date(ed.getFullYear(),ed.getMonth(),ed.getDate());
+      while(d<=endDay){
+        const dk=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        addDotToCell(dk,ev);
+        d=addDays(d,1);
+      }
+    }
   });
 }
 
 function renderGCalEvents(){
   document.querySelectorAll('.gcal-ev-block').forEach(b=>b.remove());
   gcalEvCache.forEach(ev=>{
-    if(!ev.start?.dateTime) return;
-    const sd=new Date(ev.start.dateTime),ed=new Date(ev.end.dateTime);
-    const di=Math.round((new Date(sd.getFullYear(),sd.getMonth(),sd.getDate())-new Date(weekStart.getFullYear(),weekStart.getMonth(),weekStart.getDate()))/86400000);
-    if(di<0||di>=7) return;
-    const col=document.querySelector(`.day-col[data-di="${di}"]`);
-    if(!col) return;
-    const sh=sd.getHours()+sd.getMinutes()/60,eh=ed.getHours()+ed.getMinutes()/60;
-    if(sh>=END_H||eh<=START_H) return;
-    const cs=Math.max(sh,START_H),ce=Math.min(eh,END_H);
-    const sf=(cs-START_H)/N_HOURS,ef=(ce-START_H)/N_HOURS;
     const color=getGcalEventColor(ev);
-    const block=document.createElement('div');
-    block.className='event-block gcal-ev-block';
-    block.style.cssText=`top:${sf*100}%;height:${Math.max((ef-sf)*100,2)}%;background:${color.bg};border-left:3px solid ${color.border};color:${color.text};`;
-    block.innerHTML=`<div class="event-time">${fmtH(sh)}–${fmtH(eh)}</div><div class="event-text">${ev.summary||'(無題)'}</div>`;
-    col.appendChild(block);
+    if(ev.start?.date){
+      // 終日イベント（日跨ぎ含む）
+      const startD=new Date(ev.start.date);
+      const endD=new Date(ev.end.date); // Googleは終了日が排他
+      for(let di=0;di<7;di++){
+        const d=addDays(weekStart,di);
+        d.setHours(0,0,0,0);
+        const dEnd=new Date(d);dEnd.setHours(23,59,59,999);
+        if(d>=endD||dEnd<startD) continue;
+        const col=document.querySelector(`.day-col[data-di="${di}"]`);if(!col) continue;
+        const block=document.createElement('div');
+        block.className='event-block gcal-ev-block';
+        block.style.cssText=`top:0%;height:100%;background:${color.bg};border-left:3px solid ${color.border};color:${color.text};opacity:.5;pointer-events:none;`;
+        block.innerHTML=`<div class="event-text" style="font-size:7px">${ev.summary||'(終日)'}</div>`;
+        col.appendChild(block);
+      }
+    } else if(ev.start?.dateTime){
+      // 時刻指定イベント（日跨ぎ含む）
+      const sd=new Date(ev.start.dateTime),ed=new Date(ev.end.dateTime);
+      const startDay=new Date(sd.getFullYear(),sd.getMonth(),sd.getDate());
+      const endDay=new Date(ed.getFullYear(),ed.getMonth(),ed.getDate());
+      for(let di=0;di<7;di++){
+        const d=addDays(weekStart,di);
+        const dDay=new Date(d.getFullYear(),d.getMonth(),d.getDate());
+        if(dDay<startDay||dDay>endDay) continue;
+        // この日における開始・終了時刻を計算
+        const isFirst=dDay.getTime()===startDay.getTime();
+        const isLast =dDay.getTime()===endDay.getTime();
+        const sh=isFirst?(sd.getHours()+sd.getMinutes()/60):0;
+        const eh=isLast ?(ed.getHours()+ed.getMinutes()/60):24;
+        if(sh>=END_H||eh<=START_H) continue;
+        const cs=Math.max(sh,START_H),ce=Math.min(eh,END_H);
+        const sf=(cs-START_H)/N_HOURS,ef=(ce-START_H)/N_HOURS;
+        const col=document.querySelector(`.day-col[data-di="${di}"]`);if(!col) continue;
+        const block=document.createElement('div');
+        block.className='event-block gcal-ev-block';
+        block.style.cssText=`top:${sf*100}%;height:${Math.max((ef-sf)*100,2)}%;background:${color.bg};border-left:3px solid ${color.border};color:${color.text};`;
+        const timeLabel=isFirst?`${fmtH(sh)}–`:'↓';
+        block.innerHTML=`<div class="event-time">${timeLabel}${isLast?fmtH(eh):''}</div><div class="event-text">${ev.summary||'(無題)'}</div>`;
+        col.appendChild(block);
+      }
+    }
   });
 }
 
