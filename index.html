@@ -193,8 +193,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:#fff;
 #day-journal{flex:1;display:flex;flex-direction:column;overflow:hidden;touch-action:pan-y pinch-zoom}
 .dj-label{font-size:8px;font-weight:700;color:var(--mid);letter-spacing:.06em;
   padding:4px 8px;border-bottom:.5px solid var(--line);flex-shrink:0}
-#journal-canvas-wrap{flex:1;position:relative;overflow:hidden}
-#journal-canvas{position:absolute;inset:0;touch-action:none;cursor:crosshair}
+#journal-canvas-wrap{flex:1;position:relative;overflow:hidden;touch-action:none}
+#journal-canvas{position:absolute;inset:0;touch-action:none;cursor:crosshair;will-change:transform;z-index:10}
 #journal-grid-canvas{position:absolute;inset:0;pointer-events:none}
 #journal-text{position:absolute;inset:0;border:none;outline:none;resize:none;
   font-size:12px;line-height:1.8;padding:6px 8px;background:transparent;
@@ -502,7 +502,7 @@ const WEATHER_OPTIONS = [
 
 const TIME_OPTIONS_SM = (()=>{
   const opts=[{v:'',l:'—'}];
-  for(let h=0;h<24;h++) for(let m=0;m<60;m+=30)
+  for(let h=0;h<24;h++) for(let m=0;m<60;m+=5)
     opts.push({v:`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`,
                l:`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`});
   return opts;
@@ -609,7 +609,7 @@ function saveJournal(k,u){try{localStorage.setItem('journal-'+k,u)}catch(e){cons
 function loadTomorrow(k){try{return JSON.parse(localStorage.getItem('tomorrow-'+k)||'[]')}catch{return[]}}
 function saveTomorrow(k,a){localStorage.setItem('tomorrow-'+k,JSON.stringify(a));}
 function getColor(id){return EVENT_COLORS.find(c=>c.id===id)||EVENT_COLORS[0];}
-function fmtH(h){const hh=Math.floor(h);const mm=h%1===0.5?'30':'00';return`${String(hh).padStart(2,'0')}:${mm}`;}
+function fmtH(h){const hh=Math.floor(h);const mm=Math.round((h%1)*60);return`${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`;}
 function isSameDay(a,b){return a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate();}
 
 // ══════════════════════════════════════
@@ -1053,9 +1053,13 @@ function renderDayView(){
   // モードに合わせてcanvas/textarea切替
   const isDraw=currentMode==='draw';
   const jCanvas=document.getElementById('journal-canvas');
+  const jWrap=document.getElementById('journal-canvas-wrap');
+  const djEl=document.getElementById('day-journal');
   if(jCanvas&&jText){
     jCanvas.style.pointerEvents=isDraw?'auto':'none';
     jText.style.pointerEvents=isDraw?'none':'auto';
+    if(jWrap) jWrap.style.touchAction=isDraw?'none':'auto';
+    if(djEl)  djEl.style.touchAction=isDraw?'none':'pan-y pinch-zoom';
   }
   setTimeout(()=>{resizeDayCanvas();resizeJournalCanvas();},50);
   fetchAndRenderGCalDay();
@@ -1238,7 +1242,7 @@ function buildTimeSelectors(){
   const es=document.getElementById('sel-end');
   ss.innerHTML='';es.innerHTML='';
   for(let h=START_H;h<=END_H;h++){
-    for(let m=0;m<60;m+=30){
+    for(let m=0;m<60;m+=5){
       if(h===END_H&&m>0) break;
       const v=h+m/60;
       const t=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
